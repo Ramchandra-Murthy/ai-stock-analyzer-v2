@@ -1,0 +1,61 @@
+# ==========================================================
+# Ruff Configuration
+# AI Stock Analyzer
+# Python 3.13
+# ==========================================================
+
+target-version = "py313"
+line-length = 100
+
+# Never lint generated or archived code
+force-exclude = true
+
+extend-exclude = [
+    "archive",
+    ".venv",
+    "__pycache__",
+    "generated_reports",
+    ".pytest_cache",
+    ".mypy_cache",
+    "build",
+    "dist",
+    # The React frontend has no Python; skipping it avoids walking node_modules.
+    "frontend",
+    "node_modules",
+]
+
+[lint]
+
+select = [
+    "E",    # pycodestyle
+    "F",    # Pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "C4",   # flake8-comprehensions: avoid needless dict()/list()/set() calls
+    "PERF", # perflint: slow patterns (needless list casts, copies, try in loops)
+]
+
+ignore = [
+    "E501",   # Long lines
+    "B017",   # Blind exception assertions
+    "E402",   # Module import not at top
+    "E741",   # Ambiguous variable names
+    # append-in-a-loop -> comprehension: the loops here are tiny and often hold try/except
+    # or several appends, so the rewrite gains nothing measurable and risks behaviour changes.
+    "PERF401",
+]
+
+# Package exports
+[lint.per-file-ignores]
+
+"**/__init__.py" = [
+    "F401",
+]
+
+[format]
+
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true

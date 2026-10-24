@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EROS Intraday Dashboard</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f5f7fa;color:#172033}
+header{padding:18px 24px;background:#172033;color:#fff}
+main{max-width:1200px;margin:24px auto;padding:0 16px}
+button{padding:10px 16px;border:0;border-radius:7px;cursor:pointer}
+#scan{background:#2563eb;color:#fff}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}
+.card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 4px #0001}
+table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:9px;border-bottom:1px solid #e5e7eb;text-align:left}.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.controls label{display:flex;flex-direction:column;gap:4px;font-size:13px}.controls select{padding:9px;border:1px solid #cbd5e1;border-radius:7px;background:#fff}
+.muted{color:#64748b}.status{font-weight:600}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header><strong>EROS</strong> — Intraday Scanner</header>
+<main>
+<div class="grid">
+<div class="card"><div class="muted">Scanner</div><div id="status" class="status">Ready</div></div>
+<div class="card"><div class="muted">Candidates</div><div id="count">—</div></div>
+<div class="card"><div class="muted">Universe</div><div id="universe">—</div></div>
+<div class="card controls"><label>Exchange <select id="exchange"><option>Both</option><option>NSE</option><option>BSE</option></select></label><label>Lookback <select id="lookback"><option value="5">5m</option><option value="10">10m</option><option value="15">15m</option></select></label><label>Jump <select id="jump"><option value="1">1%</option><option value="2">2%</option><option value="3">3%</option></select></label><button id="scan">Start price-pulse scan</button><button id="refresh">Refresh history</button></div>
+</div>
+<div class="card"><h3>Latest price pulses</h3><div id="results">No scan yet.</div></div><div class="card"><h3>Recent scan history</h3><div id="history">No saved scans yet.</div></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function render(rows){
+ if(!rows.length){$("results").textContent="No candidates returned.";return}
+ const cols=["Symbol","Exchange","Last price","Change over 5m","Volume vs recent bars"];
+ $("results").innerHTML="<table><thead><tr>"+cols.map(c=>"<th>"+c+"</th>").join("")+
+ "</tr></thead><tbody>"+rows.map(r=>"<tr>"+cols.map(c=>"<td>"+(r[c]??"—")+"</td>").join("")+"</tr>").join("")+"</tbody></table>";
+}
+function renderHistory(scans){ if(!scans.length){$("history").textContent="No saved scans yet.";return} $("history").innerHTML="<table><thead><tr><th>Completed</th><th>Job</th><th>Candidates</th><th>Universe checked</th></tr></thead><tbody>"+scans.map(s=>"<tr><td>"+s.completed_at+"</td><td>"+s.job_id.slice(0,10)+"…</td><td>"+s.count+"</td><td>"+(s.scan_stats?.candidate_count??"—")+"</td></tr>").join("")+"</tbody></table>"; }
+async function refreshHistory(){ try{ const data=await fetch("/api/v1/intraday/history?limit=10").then(r=>r.json()); renderHistory(data.scans||[]); }catch(e){ $("history").textContent=e.message; } }
+async function start(){
+ $("scan").disabled=true;$("status").textContent="Starting…";$("results").textContent="Scanning the selected universe…";
+ try{
+  const params=new URLSearchParams({exchange_category:$("exchange").value,lookback_minutes:$("lookback").value,jump_percent:$("jump").value}); const q=await fetch("/api/v1/intraday/price-jumps/start?"+params.toString(),{method:"POST"}).then(r=>r.json());
+  $("status").textContent="Scanning…";
+  const timer=setInterval(async()=>{
+   const job=await fetch("/api/v1/intraday/price-jumps/jobs/"+q.job_id).then(r=>r.json());
+   $("status").textContent=job.status;
+   if(job.status==="completed"){
+    clearInterval(timer);$("count").textContent=job.count;
+    $("universe").textContent=job.scan_stats?.candidate_count??"—";render(job.results||[]);
+    $("scan").disabled=false;
+   }else if(job.status==="failed"){
+    clearInterval(timer);$("results").textContent=job.error||"Scan failed.";
+    $("scan").disabled=false;
+   }
+  },1000);
+ }catch(e){$("status").textContent="Error";$("results").textContent=e.message;$("scan").disabled=false}
+}
+$("scan").addEventListener("click",start);$("refresh").addEventListener("click",refreshHistory);refreshHistory();setInterval(refreshHistory,15000);
+</script>
+</body>
+</html>

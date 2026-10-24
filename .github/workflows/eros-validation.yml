@@ -1,0 +1,91 @@
+name: EROS Validation Gate
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eros-tests:
+    name: Full EROS tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: "0.12.1"
+      - name: Install locked dependencies
+        run: uv sync --locked --no-build --no-install-project
+      - name: Run EROS test suite
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: >-
+          uv run --locked --no-sync --no-build python -m pytest
+          --import-mode=importlib -q
+          tests/test_eros*.py
+
+  valuation-tests:
+    name: Full valuation tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: "0.12.1"
+      - name: Install locked dependencies
+        run: uv sync --locked --no-build --no-install-project
+      - name: Run valuation and unit tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: >-
+          uv run --locked --no-sync --no-build python -m pytest
+          --import-mode=importlib -q
+          tests/forecast
+          tests/unit
+
+  options-tests:
+    name: Options analytics tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        with:
+          version: "0.12.1"
+      - name: Install locked dependencies
+        run: uv sync --locked --no-build --no-install-project
+      - name: Run options analytics tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: >-
+          uv run --locked --no-sync --no-build python -m pytest
+          --import-mode=importlib -q
+          tests/test_options_analytics.py
+
+  validation-summary:
+    name: Validation summary
+    if: always()
+    needs: [eros-tests, valuation-tests, options-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report validation gate
+        run: |
+          echo "EROS tests: ${{ needs.eros-tests.result }}"
+          echo "Valuation tests: ${{ needs.valuation-tests.result }}"
+          echo "Options tests: ${{ needs.options-tests.result }}"
+          if [ "${{ needs.eros-tests.result }}" != "success" ] ||              [ "${{ needs.valuation-tests.result }}" != "success" ] ||              [ "${{ needs.options-tests.result }}" != "success" ]; then
+            echo "EROS VALIDATION GATE: FAIL"
+            exit 1
+          fi
+          echo "EROS VALIDATION GATE: PASS"

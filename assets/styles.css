@@ -1,0 +1,45 @@
+/* ===========================================
+   AI STOCK ANALYZER PRO THEME
+=========================================== */
+
+/* Main App */
+.main {
+    padding-top: 1rem;
+    background-color: #f7f9fc;
+}
+
+/* KPI Cards */
+div[data-testid="metric-container"] {
+    background: white;
+    border-radius: 14px;
+    padding: 15px;
+    border: 1px solid #e6e6e6;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .06);
+}
+
+/* Buttons */
+.stButton>button {
+    border-radius: 10px;
+    height: 45px;
+    font-weight: 600;
+}
+
+/* Text Input */
+.stTextInput input {
+    border-radius: 10px;
+}
+
+/* Tabs */
+.stTabs [role="tab"] {
+    border-radius: 10px;
+    padding: 10px 20px;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #1f2937;
+}
+
+section[data-testid="stSidebar"] * {
+    color: white;
+}
