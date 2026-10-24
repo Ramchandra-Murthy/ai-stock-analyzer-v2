@@ -119,7 +119,17 @@ with tab_bt:
         )
         st.dataframe(
             table.style.format(
-                dict.fromkeys(("total_return", "cagr", "volatility", "max_drawdown", "after_tax_return", "buy_hold_return"), "{:.1%}")
+                dict.fromkeys(
+                    (
+                        "total_return",
+                        "cagr",
+                        "volatility",
+                        "max_drawdown",
+                        "after_tax_return",
+                        "buy_hold_return",
+                    ),
+                    "{:.1%}",
+                )
                 | {"sharpe": "{:.2f}"}
             ),
             use_container_width=True,
