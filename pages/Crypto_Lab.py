@@ -1,4 +1,4 @@
-""""Crypto Lab: risk, backtests with fees and Indian VDA tax, DCA and perpetual-futures maths."""
+"""Crypto Lab: risk, backtests with fees and Indian VDA tax, DCA and perpetual-futures maths."""
 
 from __future__ import annotations
 
