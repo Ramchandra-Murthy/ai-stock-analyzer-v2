@@ -1,12 +1,12 @@
 @echo off
 title AI_STOCK_ANALYZER
-cd /d "D:\Users\User\Desktop\ai_stock_analyzer_v2\ai_stock_analyzer_v2"
+cd /d "%~dp0"
 
 if not exist "app.py" (
     echo ERROR: app.py was not found in:
     echo %CD%
     echo.
-    echo Edit this shortcut file and correct the project folder path.
+    echo Run this file from the project folder that contains app.py.
     pause
     exit /b 1
 )
