@@ -5,6 +5,8 @@ Kept separate from the page so the parsing rules can be unit tested.
 
 from __future__ import annotations
 
+import math
+
 from algorithmic_trading.portfolio_advanced import View
 from services.symbol_resolver import company_label, resolve_symbol
 
@@ -22,6 +24,8 @@ def parse_holdings(raw: str) -> dict[str, float]:
             weight = float(parts[1])
         except ValueError as exc:
             raise ValueError(f"Weight is not a number on line: {line!r}") from exc
+        if not math.isfinite(weight):
+            raise ValueError(f"Weight must be a finite number: {line!r}")
         if weight < 0:
             raise ValueError(f"Weights cannot be negative: {line!r}")
         symbol = parts[0].upper()
@@ -58,6 +62,8 @@ def parse_views(raw: str, default_exchange: str = "NSE") -> list[View]:
             expected, confidence = float(ret_text), float(conf_text)
         except ValueError as exc:
             raise ValueError(f"Return and confidence must be numbers: {line!r}") from exc
+        if not math.isfinite(expected):
+            raise ValueError(f"Return must be a finite number: {line!r}")
         if not 0 < confidence < 1:
             raise ValueError(f"Confidence must be strictly between 0 and 1: {line!r}")
         if ">" in target:
@@ -115,7 +121,7 @@ def parse_share_counts(
         raise ValueError(f"Not in the loaded portfolio: {', '.join(unknown)}")
     out: dict[str, int] = {}
     for name, count in counts.items():
-        if count != int(count):
+        if not float(count).is_integer():
             raise ValueError(f"Share counts must be whole numbers: {name} {count}")
         out[name] = int(count)
     return out

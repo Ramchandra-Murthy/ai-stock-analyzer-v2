@@ -1,6 +1,11 @@
 import pytest
 
-from algorithmic_trading.lab_inputs import parse_holdings, parse_views, resolve_holdings
+from algorithmic_trading.lab_inputs import (
+    parse_holdings,
+    parse_share_counts,
+    parse_views,
+    resolve_holdings,
+)
 
 
 def test_parse_holdings_normalises_case_and_separators():
@@ -81,8 +86,6 @@ def test_parse_views_reject_the_same_security_written_two_ways():
         parse_views("TCS>TCS.NS 0.01 0.5")
 
 
-from algorithmic_trading.lab_inputs import parse_share_counts  # noqa: E402
-
 ALLOWED = {"TCS", "RELIANCE (BSE 500325)"}
 
 
@@ -99,3 +102,17 @@ def test_share_counts_resolve_bse_codes_and_whole_numbers():
 def test_share_counts_reject_bad_input(raw):
     with pytest.raises(ValueError):
         parse_share_counts(raw, "NSE", ALLOWED)
+
+
+@pytest.mark.parametrize("weight", ["nan", "inf", "-inf", "NaN", "Infinity"])
+def test_non_finite_weights_are_rejected_with_a_message(weight):
+    with pytest.raises(ValueError, match="finite|negative"):
+        parse_holdings(f"TCS {weight}")
+    with pytest.raises(ValueError):  # share counts must never crash with OverflowError
+        parse_share_counts(f"TCS {weight}", "NSE", ALLOWED)
+
+
+@pytest.mark.parametrize("value", ["nan", "inf", "-inf"])
+def test_non_finite_view_returns_are_rejected(value):
+    with pytest.raises(ValueError, match="finite"):
+        parse_views(f"TCS {value} 0.5")
