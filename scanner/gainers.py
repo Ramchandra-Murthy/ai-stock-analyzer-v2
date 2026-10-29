@@ -7,7 +7,7 @@ silently: every candidate ends up either in ``rows`` or in ``skipped`` with a re
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -89,3 +89,27 @@ def coverage_message(scan: GainerScan, exchange: str, universe_size: int) -> str
         more = f" and {len(scan.skipped) - 6} more" if len(scan.skipped) > 6 else ""
         text += f" {unscored} returned no usable data: {shown}{more}."
     return text
+
+
+def download_with_fallback(
+    download: Callable[[list[str]], tuple[dict[str, pd.DataFrame], list[str]]],
+    tickers: Iterable[str],
+    alternates: Mapping[str, str],
+) -> dict[str, pd.DataFrame]:
+    """Download ``tickers``; retry each one that came back empty under its alternate ticker.
+
+    Yahoo serves some BSE listings under the scrip code (``500325.BO``) and others only under
+    the name (``RELIANCE.BO``). A recovered frame is stored under the *original* ticker so the
+    rest of the scan, and its coverage count, need no changes.
+    """
+    wanted = list(dict.fromkeys(tickers))
+    frames, _ = download(wanted)
+    frames = {t: f for t, f in frames.items() if f is not None and not f.empty}
+    retry = {t: alternates[t] for t in wanted if t not in frames and alternates.get(t)}
+    if retry:
+        recovered, _ = download(list(dict.fromkeys(retry.values())))
+        for original, alternate in retry.items():
+            frame = recovered.get(alternate)
+            if frame is not None and not frame.empty:
+                frames[original] = frame
+    return frames

@@ -11,7 +11,7 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
-from scanner.gainers import build_gainer_rows, coverage_message
+from scanner.gainers import build_gainer_rows, coverage_message, download_with_fallback
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from services.parallel_download import download_in_parallel
 from services.portfolio_calculations import is_actual_holding, position_valuation
@@ -127,28 +127,34 @@ def _scan_market_gainers(
     from services.resilient_market_data import download_symbol_frames
 
     chunk = 6 if exchange == "BSE" else 10
-    intraday_frames, _intraday_missing = download_in_parallel(
-        download_symbol_frames,
-        tickers,
-        chunk_size=chunk,
-        workers=4,
-        period="1d",
-        interval="5m",
-        auto_adjust=False,
-        batch_size=chunk,
-        timeout=4 if exchange == "BSE" else 6,
+    # Yahoo serves some BSE listings only under the name (RELIANCE.BO), not the scrip code.
+    alternates = (
+        {
+            f"{code}.BO": f"{name}.BO"
+            for code, name in zip(BSE_CANDIDATES, NSE_CANDIDATES, strict=True)
+        }
+        if exchange == "BSE"
+        else {}
     )
-    daily_frames, _daily_missing = download_in_parallel(
-        download_symbol_frames,
-        tickers,
-        chunk_size=chunk,
-        workers=4,
-        period="5d",
-        interval="1d",
-        auto_adjust=False,
-        batch_size=chunk,
-        timeout=4 if exchange == "BSE" else 8,
-    )
+
+    def fetch(period: str, interval: str, timeout: int) -> dict[str, pd.DataFrame]:
+        def download(batch: list[str]):
+            return download_in_parallel(
+                download_symbol_frames,
+                batch,
+                chunk_size=chunk,
+                workers=4,
+                period=period,
+                interval=interval,
+                auto_adjust=False,
+                batch_size=chunk,
+                timeout=timeout,
+            )
+
+        return download_with_fallback(download, tickers, alternates)
+
+    intraday_frames = fetch("1d", "5m", 4 if exchange == "BSE" else 6)
+    daily_frames = fetch("5d", "1d", 4 if exchange == "BSE" else 8)
 
     scan = build_gainer_rows(tickers, intraday_frames, daily_frames, suffix)
     rows = scan.rows

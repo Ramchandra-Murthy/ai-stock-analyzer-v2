@@ -110,6 +110,12 @@ pages = {
             icon="📋",
             url_path="stocks-watchlist",
         ),
+        st.Page(
+            "pages/Data_Health.py",
+            title="Data Health",
+            icon="🩺",
+            url_path="data-health",
+        ),
     ],
     "🔴 Live Market": [
         st.Page(

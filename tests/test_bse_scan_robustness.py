@@ -3,7 +3,7 @@ import time
 
 import pandas as pd
 
-from scanner.gainers import build_gainer_rows, coverage_message
+from scanner.gainers import build_gainer_rows, coverage_message, download_with_fallback
 from services.parallel_download import download_in_parallel
 
 
@@ -93,3 +93,44 @@ def test_parallel_download_really_runs_chunks_concurrently_and_forwards_kwargs()
 
 def test_parallel_download_empty_input():
     assert download_in_parallel(lambda c, **k: ({}, []), []) == ({}, [])
+
+
+# --- name-form fallback ---------------------------------------------------------------------
+
+def _serving(available):
+    calls = []
+
+    def download(chunk):
+        calls.append(list(chunk))
+        frames = {t: pd.DataFrame({"Close": [1.0, 2.0]}) for t in chunk if t in available}
+        return frames, [t for t in chunk if t not in frames]
+
+    return download, calls
+
+
+def test_fallback_recovers_a_code_the_provider_does_not_serve():
+    download, calls = _serving({"RELIANCE.BO", "532540.BO"})
+    alternates = {"500325.BO": "RELIANCE.BO", "532540.BO": "TCS.BO"}
+    frames = download_with_fallback(download, ["500325.BO", "532540.BO"], alternates)
+    assert set(frames) == {"500325.BO", "532540.BO"}  # keyed by the ORIGINAL ticker
+    assert calls == [["500325.BO", "532540.BO"], ["RELIANCE.BO"]]  # only the miss is retried
+
+
+def test_fallback_not_used_when_everything_loads():
+    download, calls = _serving({"500325.BO"})
+    download_with_fallback(download, ["500325.BO"], {"500325.BO": "RELIANCE.BO"})
+    assert len(calls) == 1
+
+
+def test_fallback_gives_up_quietly_and_ignores_empty_frames():
+    def download(chunk):
+        return {t: pd.DataFrame() for t in chunk}, []
+
+    frames = download_with_fallback(download, ["500325.BO"], {"500325.BO": "RELIANCE.BO"})
+    assert frames == {}
+
+
+def test_no_alternates_means_no_second_download():
+    download, calls = _serving(set())
+    assert download_with_fallback(download, ["TCS.NS"], {}) == {}
+    assert len(calls) == 1
