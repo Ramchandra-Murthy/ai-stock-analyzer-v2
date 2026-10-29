@@ -16,6 +16,8 @@ make run-api                  # FastAPI       -> api.main:app
 make run-cli                  # CLI           -> main.py --ticker AAPL
 ```
 
+`./run_app.sh` (macOS, Linux, WSL) or `Start_AI_STOCK_ANALYZER.bat` (Windows) installs the locked dependencies and opens the Streamlit app in one step. In GitHub Codespaces or a VS Code dev container the app starts automatically and opens in the preview pane on port 8501 (**Code → Codespaces → Create codespace**).
+
 Without `make`, run the underlying commands directly, for example `uv run streamlit run app.py`. The sidebar groups every page (market, research, algorithmic and AI trading, options).
 
 Run `make doctor` first. Whether option chains and BSE data work depends on your network and credentials, and it prints PASS/WARN/FAIL for each provider with the next step (credential values are never printed).
@@ -34,6 +36,7 @@ All are research tools: historical results, not forecasts; no page places orders
 | Pairs Research | Engle-Granger cointegration scan and an out-of-sample spread backtest (shorting limits apply in India) |
 | Strategy Robustness | Block-bootstrap ranges for Sharpe/CAGR/drawdown and a deflated Sharpe ratio that discounts the best of many tried parameter sets |
 | Portfolio Optimizer | Min-variance, max-Sharpe, risk-parity and hierarchical risk parity weights tested walk-forward against equal weight, plus risk-based and fractional-Kelly position sizing |
+| Advanced Portfolio Lab | Efficient frontier with weight caps, Black-Litterman views blended with market-implied returns, Cornish-Fisher VaR next to historical and normal VaR, block-bootstrap Monte Carlo fan chart with drawdown odds, and beta-scaled market-shock stress tests |
 | ML Signal Lab | Logistic-regression / gradient-boosting direction signals with purged walk-forward training (no label leakage), shown against the always-up base rate |
 | Volatility Forecast | EWMA and GARCH(1,1) volatility forecasts, decay path and an out-of-sample QLIKE scoreboard |
 | Sector Rotation | Relative-strength quadrants of NSE sector indices vs NIFTY 50 |
