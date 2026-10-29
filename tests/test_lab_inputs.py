@@ -1,6 +1,6 @@
 import pytest
 
-from algorithmic_trading.lab_inputs import parse_holdings, parse_views
+from algorithmic_trading.lab_inputs import parse_holdings, parse_views, resolve_holdings
 
 
 def test_parse_holdings_normalises_case_and_separators():
@@ -35,3 +35,47 @@ def test_parse_views_blank_is_empty():
 def test_parse_views_rejects_bad_input(raw):
     with pytest.raises(ValueError):
         parse_views(raw)
+
+
+def test_resolve_holdings_supports_bse_codes_and_keeps_listings_distinct():
+    tickers, weights = resolve_holdings({"TCS": 30, "500325": 20, "BSE:TCS": 10, "NSE:ITC": 5})
+    assert tickers == {
+        "TCS": "TCS.NS",
+        "RELIANCE (BSE 500325)": "500325.BO",
+        "TCS (BSE)": "TCS.BO",
+        "ITC": "ITC.NS",
+    }
+    assert weights["RELIANCE (BSE 500325)"] == 20
+
+
+def test_resolve_holdings_uses_the_default_exchange_for_bare_names():
+    tickers, _ = resolve_holdings({"INFY": 1}, "BSE")
+    assert tickers == {"INFY (BSE)": "INFY.BO"}
+
+
+@pytest.mark.parametrize("holdings", [{"TCS": 1, "TCS.NS": 2}, {"500325": 1, "BSE:500325": 1}])
+def test_resolve_holdings_rejects_the_same_security_twice(holdings):
+    with pytest.raises(ValueError, match="same security"):
+        resolve_holdings(holdings)
+
+
+def test_resolve_holdings_rejects_unusable_symbols():
+    with pytest.raises(ValueError):
+        resolve_holdings({"bad$": 1})
+
+
+def test_parse_views_use_the_same_labels_as_resolved_holdings():
+    tickers, _ = resolve_holdings({"500325": 1, "TCS": 1, "BSE:INFY": 1})
+    views = parse_views("500325>tcs 0.02 0.5\nBSE:INFY 0.1 0.4")
+    for view in views:
+        assert set(view.weights) <= set(tickers)
+    assert views[0].weights == {"RELIANCE (BSE 500325)": 1.0, "TCS": -1.0}
+
+
+def test_parse_views_default_exchange_applies_to_bare_names():
+    assert parse_views("INFY 0.1 0.5", "BSE")[0].weights == {"INFY (BSE)": 1.0}
+
+
+def test_parse_views_reject_the_same_security_written_two_ways():
+    with pytest.raises(ValueError):
+        parse_views("TCS>TCS.NS 0.01 0.5")

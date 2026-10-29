@@ -11,7 +11,9 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
+from scanner.gainers import build_gainer_rows, coverage_message
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
+from services.parallel_download import download_in_parallel
 from services.portfolio_calculations import is_actual_holding, position_valuation
 from services.watchlist_service import (
     OWNER_ID,
@@ -108,85 +110,53 @@ def _quote_table(records: list[dict[str, Any]], exchange: str) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=300, show_spinner=False)
-def _market_gainers(exchange: str, cap_segment: str, limit: int = 10) -> pd.DataFrame:
-    """Cache a bounded market-gainers scan to avoid repeating slow provider requests."""
+def _scan_market_gainers(
+    exchange: str, cap_segment: str, limit: int = 10, depth: int = 0
+) -> pd.DataFrame:
+    """Scan a bounded candidate list. The result carries a coverage note in ``attrs``."""
     candidates = NSE_CANDIDATES if exchange == "NSE" else BSE_CANDIDATES
     suffix = EXCHANGES[exchange]
-    # BSE .BO history is less consistently available from Yahoo than NSE .NS.
-    # Use a smaller BSE universe and shorter provider timeouts to avoid a long wait.
-    candidate_limit = 8 if exchange == "BSE" else 15
+    # BSE .BO history is less consistently available from Yahoo than NSE .NS, but scanning only
+    # 8 of 80 BSE names hid most of the exchange. Chunks now download concurrently, so a larger
+    # BSE pool costs roughly one slow chunk instead of the sum of all of them.
+    candidate_limit = depth if depth > 0 else (24 if exchange == "BSE" else 15)
     tickers = [f"{symbol}{suffix}" for symbol in candidates[:candidate_limit]]
     if not tickers:
         return pd.DataFrame()
 
-    # Use the same retry + per-symbol recovery path as the rest of the app.
-    # A single missing BSE scrip must not make the entire multi-symbol scan empty.
     from services.resilient_market_data import download_symbol_frames
 
-    intraday_frames, _intraday_missing = download_symbol_frames(
+    chunk = 6 if exchange == "BSE" else 10
+    intraday_frames, _intraday_missing = download_in_parallel(
+        download_symbol_frames,
         tickers,
+        chunk_size=chunk,
+        workers=4,
         period="1d",
         interval="5m",
         auto_adjust=False,
-        batch_size=8 if exchange == "BSE" else 10,
+        batch_size=chunk,
         timeout=4 if exchange == "BSE" else 6,
     )
-    daily_frames, _daily_missing = download_symbol_frames(
+    daily_frames, _daily_missing = download_in_parallel(
+        download_symbol_frames,
         tickers,
+        chunk_size=chunk,
+        workers=4,
         period="5d",
         interval="1d",
         auto_adjust=False,
-        batch_size=8 if exchange == "BSE" else 10,
+        batch_size=chunk,
         timeout=4 if exchange == "BSE" else 8,
     )
 
-    rows: list[dict[str, Any]] = []
-    for ticker in tickers:
-        try:
-
-            intraday_close = pd.to_numeric(
-                intraday_frames.get(ticker, pd.DataFrame()).get("Close", pd.Series(dtype=float)),
-                errors="coerce",
-            ).dropna()
-            daily_close = pd.to_numeric(
-                daily_frames.get(ticker, pd.DataFrame()).get("Close", pd.Series(dtype=float)),
-                errors="coerce",
-            ).dropna()
-            daily_volume = pd.to_numeric(
-                daily_frames.get(ticker, pd.DataFrame()).get("Volume", pd.Series(dtype=float)),
-                errors="coerce",
-            ).dropna()
-            if daily_close.empty or len(daily_close) < 2:
-                # Skip symbols without enough history instead of making extra
-                # per-symbol quote requests that can stall the whole scan.
-                continue
-            last = (
-                float(intraday_close.iloc[-1])
-                if not intraday_close.empty
-                else float(daily_close.iloc[-1])
-            )
-            previous = float(daily_close.iloc[-2])
-            if previous <= 0:
-                continue
-            change_pct = (last / previous - 1) * 100
-            # Market-cap data is fetched only for positive movers to limit requests.
-            rows.append(
-                {
-                    "Symbol": ticker.removesuffix(suffix),
-                    "Ticker": ticker,
-                    "Price": last,
-                    "Change (%)": change_pct,
-                    "Volume": int(daily_volume.iloc[-1]) if not daily_volume.empty else None,
-                    "Market cap (₹)": None,
-                    "Cap segment": "Unverified",
-                }
-            )
-        except (KeyError, TypeError, ValueError, IndexError):
-            continue
-
+    scan = build_gainer_rows(tickers, intraday_frames, daily_frames, suffix)
+    rows = scan.rows
+    coverage = coverage_message(scan, exchange, len(candidates))
     if not rows:
-        return pd.DataFrame()
-    rows.sort(key=lambda row: row["Change (%)"], reverse=True)
+        empty = pd.DataFrame()
+        empty.attrs["coverage"] = coverage
+        return empty
 
     # BSE cap lookups are especially slow; enrich only one BSE mover (three for NSE).
     cap_lookup_limit = 1 if exchange == "BSE" else 3
@@ -210,6 +180,7 @@ def _market_gainers(exchange: str, cap_segment: str, limit: int = 10) -> pd.Data
     if cap_segment != "All":
         frame = frame.loc[frame["Cap segment"] == cap_segment]
     frame = frame.loc[frame["Change (%)"] > 0].head(limit).copy()
+    frame.attrs["coverage"] = coverage
     if frame.empty:
         return frame
     frame["Price"] = frame["Price"].map(lambda value: f"₹{value:,.2f}")
@@ -236,9 +207,25 @@ def _market_gainers(exchange: str, cap_segment: str, limit: int = 10) -> pd.Data
             )
         )
     )
-    return frame[
-        ["Symbol", "Price", "Change (%)", "Volume", "Cap segment", "Market cap"]
+    result = frame[
+        ["Symbol", "Company", "Price", "Change (%)", "Volume", "Cap segment", "Market cap"]
     ].reset_index(drop=True)
+    result.attrs["coverage"] = coverage
+    return result
+
+
+def _market_gainers(
+    exchange: str, cap_segment: str, limit: int = 10, depth: int = 0
+) -> pd.DataFrame:
+    """Cached scan that never keeps an empty result.
+
+    A transient provider failure used to be cached for five minutes, leaving the exchange blank
+    until the entry expired. An empty scan is cleared so the next click fetches fresh data.
+    """
+    result = _scan_market_gainers(exchange, cap_segment, limit, depth)
+    if result.empty:
+        _scan_market_gainers.clear()
+    return result
 
 
 def _risk_metrics(
@@ -904,7 +891,7 @@ def show() -> None:
                 "Screens a bounded list of NSE/BSE candidates. Market-cap labels are shown only when "
                 "the data provider supplies a value; quotes may be delayed and are not exchange-certified."
             )
-            gain_cols = st.columns([1, 1, 1])
+            gain_cols = st.columns([1, 1, 1, 1])
             gain_exchange = gain_cols[0].selectbox(
                 "Exchange", ["NSE", "BSE"], key="gainers_exchange"
             )
@@ -914,10 +901,18 @@ def show() -> None:
                 key="gainers_cap_segment",
             )
             gain_count = gain_cols[2].selectbox("Show", [10, 20, 30], index=0, key="gainers_count")
+            gain_depth = gain_cols[3].selectbox(
+                "Candidates to scan",
+                [24, 48, 80],
+                index=0,
+                key="gainers_depth",
+                help="How many of the curated symbols to check. More is slower but covers more "
+                "of the exchange; symbols without data are listed after the scan.",
+            )
             if st.button("Scan market gainers", key="scan_market_gainers", type="primary"):
                 with st.spinner("Scanning available market data…"):
                     st.session_state["personal_market_gainers_result"] = _market_gainers(
-                        gain_exchange, gain_segment, int(gain_count)
+                        gain_exchange, gain_segment, int(gain_count), int(gain_depth)
                     )
                     st.session_state["personal_market_gainers_exchange"] = gain_exchange
             gainers = st.session_state.get("personal_market_gainers_result")
@@ -926,6 +921,9 @@ def show() -> None:
                     scanned_exchange = st.session_state.get(
                         "personal_market_gainers_exchange", gain_exchange
                     )
+                    coverage = gainers.attrs.get("coverage")
+                    if coverage:
+                        st.info(coverage)
                     st.warning(
                         f"No verified positive movers were returned for {scanned_exchange}. "
                         "This does not mean the market had no gainers: Yahoo Finance may have "
@@ -943,6 +941,8 @@ def show() -> None:
                         "the candidate universe; a result is not guaranteed when provider data is absent."
                     )
                 else:
+                    if gainers.attrs.get("coverage"):
+                        st.caption(gainers.attrs["coverage"])
                     st.dataframe(gainers, use_container_width=True, hide_index=True)
                     choices = gainers["Symbol"].astype(str).tolist()
                     selected_gainer = st.selectbox(

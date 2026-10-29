@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from algorithmic_trading.lab_inputs import parse_holdings, parse_views
+from algorithmic_trading.lab_inputs import parse_holdings, parse_views, resolve_holdings
 from algorithmic_trading.portfolio_advanced import (
     DEFAULT_RISK_AVERSION,
     DEFAULT_TAU,
@@ -38,38 +38,56 @@ DEFAULT_VIEWS = "TCS>INFY 0.03 0.5"
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def _returns(symbols: tuple[str, ...], period: str) -> pd.DataFrame:
-    tickers = [f"{s}.NS" for s in symbols]
-    raw = cached_download(tickers, period=period, auto_adjust=True, progress=False)
+def _returns(tickers: tuple[str, ...], period: str) -> pd.DataFrame:
+    """Daily returns per full Yahoo ticker (``TCS.NS``, ``500325.BO``); columns keep the ticker."""
+    raw = cached_download(list(tickers), period=period, auto_adjust=True, progress=False)
     if raw is None or raw.empty:
         return pd.DataFrame()
     close = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw[["Close"]]
     if not isinstance(raw.columns, pd.MultiIndex):
-        close.columns = tickers[:1]
-    close.columns = [str(c).removesuffix(".NS") for c in close.columns]
+        close.columns = list(tickers)[:1]
+    close.columns = [str(c) for c in close.columns]
     return close.pct_change().dropna(how="all")
 
 
 holdings_text = st.text_area(
-    "Holdings: one `SYMBOL weight` per line (NSE symbols, weights are relative)",
+    "Holdings: one `SYMBOL weight` per line (weights are relative). Accepts `TCS`, `TCS.NS`, "
+    "`NSE:TCS`, BSE scrip codes like `500325` or `BSE:500325`, and `.BO` tickers.",
     DEFAULT_HOLDINGS,
 )
-period = st.selectbox("History", ["2y", "5y", "10y"], index=1)
+c_ex, c_period = st.columns(2)
+default_exchange = c_ex.selectbox(
+    "Exchange for plain names", ["NSE", "BSE"], help="Used for symbols with no NSE:/BSE: prefix."
+)
+period = c_period.selectbox("History", ["2y", "5y", "10y"], index=1)
 
 if st.button("Load data", type="primary"):
     try:
-        holdings = parse_holdings(holdings_text)
-        if len(holdings) < 2:
+        typed = parse_holdings(holdings_text)
+        if len(typed) < 2:
             raise ValueError("Enter at least two holdings.")
-        data = _returns(tuple(holdings), period).dropna()
-        if data.empty:
+        ticker_by_name, holdings = resolve_holdings(typed, default_exchange)
+        wide = _returns(tuple(ticker_by_name.values()), period)
+        if wide.empty:
             raise ValueError("No price data came back. Try again shortly.")
-        missing = [s for s in holdings if s not in data.columns]
-        if missing:
-            raise ValueError(f"No price data for: {', '.join(missing)}")
+        # Name every symbol that has no usable history instead of letting one bad ticker
+        # blank the whole table (dropna() on all columns would delete every row).
+        no_data = [
+            name
+            for name, ticker in ticker_by_name.items()
+            if ticker not in wide.columns or wide[ticker].notna().sum() < 120
+        ]
+        if no_data:
+            raise ValueError(
+                "No usable price history for: "
+                + ", ".join(f"{n} [{ticker_by_name[n]}]" for n in no_data)
+                + ". Check the symbol and exchange, or remove it."
+            )
+        data = wide[list(ticker_by_name.values())].dropna()
+        data.columns = list(ticker_by_name)
         if len(data) < 120:
             raise ValueError("Fewer than 120 shared trading days; use a longer history.")
-        st.session_state["apl_returns"] = data[list(holdings)]
+        st.session_state["apl_returns"] = data
         st.session_state["apl_weights"] = holdings
     except ValueError as exc:
         st.session_state.pop("apl_returns", None)
@@ -123,6 +141,10 @@ with tab_bl:
         "`TCS>INFY 0.03 0.5` (TCS beats INFY by 3% a year, 50% confident)."
     )
     views_text = st.text_area("Views", DEFAULT_VIEWS, key="apl_views")
+    st.caption(
+        "View assets use the same symbol forms as holdings. Loaded assets: "
+        + ", ".join(f"`{name}`" for name in weights)
+    )
     b1, b2, b3 = st.columns(3)
     risk_aversion = b1.number_input("Risk aversion", 0.5, 10.0, DEFAULT_RISK_AVERSION, 0.5)
     tau = b2.number_input("Tau (prior uncertainty)", 0.01, 0.5, DEFAULT_TAU, 0.01)
@@ -131,7 +153,7 @@ with tab_bl:
         result = black_litterman_portfolio(
             cov,
             weights,
-            parse_views(views_text),
+            parse_views(views_text, default_exchange),
             tau=float(tau),
             risk_aversion=float(risk_aversion),
             max_weight=bl_cap,

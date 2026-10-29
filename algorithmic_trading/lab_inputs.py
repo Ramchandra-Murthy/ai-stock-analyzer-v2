@@ -6,6 +6,7 @@ Kept separate from the page so the parsing rules can be unit tested.
 from __future__ import annotations
 
 from algorithmic_trading.portfolio_advanced import View
+from services.symbol_resolver import company_label, resolve_symbol
 
 
 def parse_holdings(raw: str) -> dict[str, float]:
@@ -32,11 +33,17 @@ def parse_holdings(raw: str) -> dict[str, float]:
     return out
 
 
-def parse_views(raw: str) -> list[View]:
+def _asset(token: str, default_exchange: str) -> str:
+    """Resolve a typed asset to the same readable label ``resolve_holdings`` produces."""
+    return company_label(resolve_symbol(token, default_exchange).ticker)
+
+
+def parse_views(raw: str, default_exchange: str = "NSE") -> list[View]:
     """Parse Black-Litterman view lines.
 
     ``TCS 0.15 0.6``       absolute view: TCS returns 15% a year, 60% confident.
     ``TCS>INFY 0.03 0.5``  relative view: TCS beats INFY by 3% a year, 50% confident.
+    Assets accept any form the symbol resolver does (``500325``, ``BSE:TCS``, ``INFY.NS``).
     Returns and confidences are fractions (0.15, not 15). Blank lines are skipped.
     """
     views: list[View] = []
@@ -55,11 +62,36 @@ def parse_views(raw: str) -> list[View]:
             raise ValueError(f"Confidence must be strictly between 0 and 1: {line!r}")
         if ">" in target:
             winner, _, loser = target.partition(">")
-            winner, loser = winner.upper(), loser.upper()
-            if not winner or not loser or winner == loser:
+            if not winner or not loser:
+                raise ValueError(f"A relative view needs two different assets: {line!r}")
+            winner, loser = _asset(winner, default_exchange), _asset(loser, default_exchange)
+            if winner == loser:
                 raise ValueError(f"A relative view needs two different assets: {line!r}")
             weights = {winner: 1.0, loser: -1.0}
         else:
-            weights = {target.upper(): 1.0}
+            weights = {_asset(target, default_exchange): 1.0}
         views.append(View(weights=weights, expected_return=expected, confidence=confidence))
     return views
+
+
+def resolve_holdings(
+    holdings: dict[str, float], default_exchange: str = "NSE"
+) -> tuple[dict[str, str], dict[str, float]]:
+    """Map typed holdings to Yahoo tickers; returns ``(ticker_by_name, weight_by_name)``.
+
+    Names are readable labels (``RELIANCE``, ``TCS (BSE 532540)``) so the same company listed
+    on both exchanges stays distinct. Two entries that resolve to one ticker are an error
+    rather than a silent merge.
+    """
+    tickers: dict[str, str] = {}
+    weights: dict[str, float] = {}
+    seen: dict[str, str] = {}
+    for raw, weight in holdings.items():
+        item = resolve_symbol(raw, default_exchange)
+        if item.ticker in seen:
+            raise ValueError(f"{raw} and {seen[item.ticker]} are the same security ({item.ticker}).")
+        seen[item.ticker] = raw
+        name = company_label(item.ticker)
+        tickers[name] = item.ticker
+        weights[name] = weight
+    return tickers, weights
