@@ -95,3 +95,25 @@ def resolve_holdings(
         tickers[name] = item.ticker
         weights[name] = weight
     return tickers, weights
+
+
+def parse_share_counts(
+    raw: str, default_exchange: str, allowed: set[str] | frozenset[str]
+) -> dict[str, int]:
+    """Parse current share counts (``SYMBOL shares`` per line; blank means nothing held).
+
+    Symbols are resolved like holdings (so ``500325`` and ``BSE:500325`` work) and must be
+    one of ``allowed`` (the loaded portfolio's names). Counts must be whole, non-negative.
+    """
+    if not raw.strip():
+        return {}
+    names, counts = resolve_holdings(parse_holdings(raw), default_exchange)
+    unknown = [name for name in names if name not in allowed]
+    if unknown:
+        raise ValueError(f"Not in the loaded portfolio: {', '.join(unknown)}")
+    out: dict[str, int] = {}
+    for name, count in counts.items():
+        if count != int(count):
+            raise ValueError(f"Share counts must be whole numbers: {name} {count}")
+        out[name] = int(count)
+    return out

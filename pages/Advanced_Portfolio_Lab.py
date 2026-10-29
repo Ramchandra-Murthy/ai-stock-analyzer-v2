@@ -5,7 +5,12 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from algorithmic_trading.lab_inputs import parse_holdings, parse_views, resolve_holdings
+from algorithmic_trading.lab_inputs import (
+    parse_holdings,
+    parse_share_counts,
+    parse_views,
+    resolve_holdings,
+)
 from algorithmic_trading.portfolio_advanced import (
     DEFAULT_RISK_AVERSION,
     DEFAULT_TAU,
@@ -13,6 +18,7 @@ from algorithmic_trading.portfolio_advanced import (
     efficient_frontier,
 )
 from algorithmic_trading.portfolio_optimizer import TRADING_DAYS, covariance
+from algorithmic_trading.portfolio_tools import min_cvar_weights, portfolio_cvar, rebalance_plan
 from algorithmic_trading.risk_advanced import (
     DEFAULT_MARKET_SHOCKS,
     advanced_risk_summary,
@@ -23,7 +29,7 @@ from algorithmic_trading.risk_advanced import (
     worst_windows,
 )
 from algorithmic_trading.risk_metrics import portfolio_returns
-from services.cached_download import cached_download
+from services.price_table import load_close_prices, load_returns
 
 st.set_page_config(page_title="Advanced Portfolio Lab", page_icon="🧮", layout="wide")
 st.title("🧮 Advanced Portfolio Lab")
@@ -34,20 +40,21 @@ st.warning(
 )
 
 DEFAULT_HOLDINGS = "RELIANCE 30\nTCS 25\nHDFCBANK 25\nITC 10\nINFY 10"
-DEFAULT_VIEWS = "TCS>INFY 0.03 0.5"
+VIEWS_EXAMPLE = "TCS>INFY 0.03 0.5"
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def _returns(tickers: tuple[str, ...], period: str) -> pd.DataFrame:
-    """Daily returns per full Yahoo ticker (``TCS.NS``, ``500325.BO``); columns keep the ticker."""
-    raw = cached_download(list(tickers), period=period, auto_adjust=True, progress=False)
-    if raw is None or raw.empty:
-        return pd.DataFrame()
-    close = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw[["Close"]]
-    if not isinstance(raw.columns, pd.MultiIndex):
-        close.columns = list(tickers)[:1]
-    close.columns = [str(c) for c in close.columns]
-    return close.pct_change().dropna(how="all")
+def _returns(items: tuple[tuple[str, str], ...], period: str):
+    """Daily returns per display name; also the names that had no data at all."""
+    return load_returns(dict(items), period, min_rows=120)
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _last_prices(items: tuple[tuple[str, str], ...]) -> dict[str, float]:
+    close, missing = load_close_prices(dict(items), "5d")
+    if missing:
+        raise ValueError(f"No recent price for: {', '.join(missing)}")
+    return {name: float(close[name].dropna().iloc[-1]) for name in close.columns}
 
 
 holdings_text = st.text_area(
@@ -67,28 +74,17 @@ if st.button("Load data", type="primary"):
         if len(typed) < 2:
             raise ValueError("Enter at least two holdings.")
         ticker_by_name, holdings = resolve_holdings(typed, default_exchange)
-        wide = _returns(tuple(ticker_by_name.values()), period)
-        if wide.empty:
-            raise ValueError("No price data came back. Try again shortly.")
-        # Name every symbol that has no usable history instead of letting one bad ticker
-        # blank the whole table (dropna() on all columns would delete every row).
-        no_data = [
-            name
-            for name, ticker in ticker_by_name.items()
-            if ticker not in wide.columns or wide[ticker].notna().sum() < 120
-        ]
-        if no_data:
-            raise ValueError(
-                "No usable price history for: "
-                + ", ".join(f"{n} [{ticker_by_name[n]}]" for n in no_data)
-                + ". Check the symbol and exchange, or remove it."
+        data, missing = _returns(tuple(ticker_by_name.items()), period)
+        if missing:
+            st.warning(
+                f"No price history for {', '.join(missing)}; they were left out. Check the "
+                "symbol and exchange, or try again if the data provider was busy."
             )
-        data = wide[list(ticker_by_name.values())].dropna()
-        data.columns = list(ticker_by_name)
-        if len(data) < 120:
-            raise ValueError("Fewer than 120 shared trading days; use a longer history.")
+        if data.shape[1] < 2:
+            raise ValueError("Fewer than two symbols had price history.")
         st.session_state["apl_returns"] = data
-        st.session_state["apl_weights"] = holdings
+        st.session_state["apl_weights"] = {n: holdings[n] for n in data.columns}
+        st.session_state["apl_tickers"] = {n: ticker_by_name[n] for n in data.columns}
     except ValueError as exc:
         st.session_state.pop("apl_returns", None)
         st.error(str(exc))
@@ -105,8 +101,15 @@ st.caption(f"{len(returns)} shared trading days, {first:%d %b %Y} to {last:%d %b
 mean = returns.mean() * TRADING_DAYS
 cov = covariance(returns)
 
-tab_frontier, tab_bl, tab_tail, tab_mc, tab_stress = st.tabs(
-    ["Efficient frontier", "Black-Litterman", "Tail risk", "Monte Carlo", "Stress test"]
+tab_frontier, tab_bl, tab_tail, tab_mc, tab_stress, tab_cvar = st.tabs(
+    [
+        "Efficient frontier",
+        "Black-Litterman",
+        "Tail risk",
+        "Monte Carlo",
+        "Stress test",
+        "Min-CVaR & rebalance",
+    ]
 )
 
 with tab_frontier:
@@ -140,7 +143,12 @@ with tab_bl:
         "`TCS 0.15 0.6` (TCS returns 15% a year, 60% confident) or "
         "`TCS>INFY 0.03 0.5` (TCS beats INFY by 3% a year, 50% confident)."
     )
-    views_text = st.text_area("Views", DEFAULT_VIEWS, key="apl_views")
+    views_text = st.text_area(
+        "Views (optional; leave blank to see the market-implied prior)",
+        "",
+        placeholder=VIEWS_EXAMPLE,
+        key="apl_views",
+    )
     st.caption(
         "View assets use the same symbol forms as holdings. Loaded assets: "
         + ", ".join(f"`{name}`" for name in weights)
@@ -267,3 +275,85 @@ with tab_stress:
             "Each stock's loss is its weight x its beta to the equal-weight basket x the shock. "
             "In real sell-offs correlations rise and losses usually exceed this linear estimate."
         )
+
+with tab_cvar:
+    k1, k2 = st.columns(2)
+    level = k1.select_slider("CVaR confidence", [0.90, 0.95, 0.975, 0.99], value=0.95)
+    cvar_cap = k2.slider("Maximum weight per stock", 0.2, 1.0, 0.5, 0.05, key="apl_cvarcap")
+    entered = pd.Series(weights, dtype=float)
+    entered = entered / entered.sum()
+    try:
+        cvar_weights, cvar_value = min_cvar_weights(returns, level, cvar_cap)
+    except ValueError as exc:
+        st.error(str(exc))
+        st.stop()
+    compare_w = pd.DataFrame({"As entered": entered, "Min-CVaR": cvar_weights})
+    v1, v2 = st.columns(2)
+    current_cvar = portfolio_cvar(returns, entered, level)
+    v1.metric(f"1-day CVaR {level:.1%}, as entered", f"{current_cvar:.2%}")
+    v2.metric(f"1-day CVaR {level:.1%}, min-CVaR", f"{cvar_value:.2%}")
+    st.dataframe(compare_w.style.format("{:.1%}"), use_container_width=True)
+    st.bar_chart(compare_w)
+    st.caption(
+        "Minimises the average loss on the worst days directly. Fitted to this history, so "
+        "expect a worse tail out of sample; it also tends to concentrate in a few calm stocks."
+    )
+
+    st.markdown("**Rebalance plan (whole shares, estimated costs)**")
+    target_choice = st.radio(
+        "Target weights", ["Min-CVaR", "As entered", "Equal weight"], horizontal=True
+    )
+    shares_text = st.text_area(
+        "Shares you hold now: `SYMBOL shares` per line (leave blank if none)", "", key="apl_shares"
+    )
+    r1, r2, r3 = st.columns(3)
+    cash = r1.number_input("Cash to invest (₹)", 0.0, value=500_000.0, step=10_000.0)
+    lot = r2.number_input("Lot size", 1, 10_000, 1)
+    min_trade = r3.number_input("Skip trades below (₹)", 0.0, value=2_000.0, step=500.0)
+    if st.button("Plan trades", key="apl_plan"):
+        try:
+            held = parse_share_counts(shares_text, default_exchange, frozenset(returns.columns))
+            tickers_kept = st.session_state.get("apl_tickers", {})
+            prices = _last_prices(tuple(tickers_kept.items()))
+            targets = {
+                "Min-CVaR": cvar_weights,
+                "As entered": entered,
+                "Equal weight": pd.Series(1.0 / returns.shape[1], index=returns.columns),
+            }[target_choice]
+            plan, summary = rebalance_plan(
+                held,
+                prices,
+                targets,
+                cash=float(cash),
+                lot_sizes={name: int(lot) for name in returns.columns},
+                min_trade_value=float(min_trade),
+            )
+        except ValueError as exc:
+            st.error(str(exc))
+        else:
+            q1, q2, q3, q4 = st.columns(4)
+            q1.metric("Portfolio value", f"₹{summary['portfolio_value']:,.0f}")
+            q2.metric("Turnover", f"{summary['turnover']:.0%}")
+            q3.metric("Estimated costs", f"₹{summary['estimated_cost']:,.0f}")
+            q4.metric("Cash left", f"₹{summary['cash_after']:,.0f}")
+            shown = plan[["action", "trade_shares", "price", "trade_value", "est_cost"]].join(
+                plan[["current_weight", "target_weight", "post_trade_weight"]]
+            )
+            st.dataframe(
+                shown.style.format(
+                    {
+                        "price": "{:,.2f}",
+                        "trade_value": "{:,.0f}",
+                        "est_cost": "{:,.0f}",
+                        "current_weight": "{:.1%}",
+                        "target_weight": "{:.1%}",
+                        "post_trade_weight": "{:.1%}",
+                    }
+                ),
+                use_container_width=True,
+            )
+            st.caption(
+                "Prices are the latest daily close and may be delayed. Costs use NSE delivery "
+                "rates (an approximation for BSE listings). This plans trades; it never places "
+                "orders."
+            )

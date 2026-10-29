@@ -79,3 +79,23 @@ def test_parse_views_default_exchange_applies_to_bare_names():
 def test_parse_views_reject_the_same_security_written_two_ways():
     with pytest.raises(ValueError):
         parse_views("TCS>TCS.NS 0.01 0.5")
+
+
+from algorithmic_trading.lab_inputs import parse_share_counts  # noqa: E402
+
+ALLOWED = {"TCS", "RELIANCE (BSE 500325)"}
+
+
+def test_share_counts_blank_means_nothing_held():
+    assert parse_share_counts("  \n", "NSE", ALLOWED) == {}
+
+
+def test_share_counts_resolve_bse_codes_and_whole_numbers():
+    got = parse_share_counts("tcs 10\n500325 5", "NSE", ALLOWED)
+    assert got == {"TCS": 10, "RELIANCE (BSE 500325)": 5}
+
+
+@pytest.mark.parametrize("raw", ["TCS 1.5", "INFY 3", "TCS -2", "TCS 10\nTCS.NS 5"])
+def test_share_counts_reject_bad_input(raw):
+    with pytest.raises(ValueError):
+        parse_share_counts(raw, "NSE", ALLOWED)
