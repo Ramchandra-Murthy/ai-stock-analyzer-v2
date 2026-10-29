@@ -200,6 +200,12 @@ pages = {
             url_path="portfolio-optimizer",
         ),
         st.Page(
+            "pages/Advanced_Portfolio_Lab.py",
+            title="Advanced Portfolio Lab",
+            icon="🧮",
+            url_path="advanced-portfolio-lab",
+        ),
+        st.Page(
             "pages/Momentum_Portfolio.py",
             title="Momentum Portfolio",
             icon="🚀",
