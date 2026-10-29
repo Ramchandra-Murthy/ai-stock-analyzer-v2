@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pandas as pd
 import streamlit as st
 
 from algorithmic_trading.pairs_trading import BANK_PAIRS, backtest_pair, scan_pairs

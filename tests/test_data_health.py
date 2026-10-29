@@ -39,7 +39,7 @@ def test_a_crashing_chunk_does_not_hide_the_others():
     def download(chunk, **kwargs):
         if "BAD.BO" in chunk:
             raise RuntimeError("provider down")
-        return {t: BAR for t in chunk}, []
+        return dict.fromkeys(chunk, BAR), []
 
     cov = measure_coverage("x", ["BAD.BO", "A.BO", "B.BO"], download, chunk_size=1)
     assert cov.loaded == 2 and cov.missing == ("BAD.BO",)

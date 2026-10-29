@@ -89,7 +89,9 @@ def resolve_holdings(
     for raw, weight in holdings.items():
         item = resolve_symbol(raw, default_exchange)
         if item.ticker in seen:
-            raise ValueError(f"{raw} and {seen[item.ticker]} are the same security ({item.ticker}).")
+            raise ValueError(
+                f"{raw} and {seen[item.ticker]} are the same security ({item.ticker})."
+            )
         seen[item.ticker] = raw
         name = company_label(item.ticker)
         tickers[name] = item.ticker

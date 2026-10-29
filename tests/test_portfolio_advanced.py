@@ -101,9 +101,7 @@ def test_bullish_view_raises_that_assets_posterior_and_more_so_with_confidence()
 def test_near_certain_absolute_view_lands_close_to_the_view():
     _, cov = _inputs()
     w = dict.fromkeys("ABCD", 0.25)
-    posterior = pa.black_litterman_returns(
-        cov, w, [pa.View({"C": 1.0}, 0.30, 0.999)], tau=0.5
-    )
+    posterior = pa.black_litterman_returns(cov, w, [pa.View({"C": 1.0}, 0.30, 0.999)], tau=0.5)
     assert posterior["C"] == pytest.approx(0.30, abs=0.01)
 
 

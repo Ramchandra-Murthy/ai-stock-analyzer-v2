@@ -110,9 +110,9 @@ def rebalance_plan(
     if cash < 0:
         raise ValueError("cash cannot be negative.")
     price = pd.Series(prices, dtype=float).reindex(names)
-    lots = pd.Series(
-        {n: int((lot_sizes or {}).get(n, 1)) for n in names}, dtype=float
-    ).reindex(names)
+    lots = pd.Series({n: int((lot_sizes or {}).get(n, 1)) for n in names}, dtype=float).reindex(
+        names
+    )
     if (lots < 1).any():
         raise ValueError("Lot sizes must be at least 1.")
     model = cost_model or india_cost_model("delivery")
@@ -129,11 +129,7 @@ def rebalance_plan(
     def totals(t: pd.Series) -> tuple[float, float, float]:
         buys = float((t.clip(lower=0) * price).sum())
         sells = float((-t.clip(upper=0) * price).sum())
-        fee = float(
-            model.cost_fraction(
-                pd.Series([buys]), pd.Series([sells])
-            ).iloc[0]
-        )
+        fee = float(model.cost_fraction(pd.Series([buys]), pd.Series([sells])).iloc[0])
         return buys, sells, fee
 
     # Costs are a share of traded value, so recompute after every trim.

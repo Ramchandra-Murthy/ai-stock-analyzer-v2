@@ -69,7 +69,7 @@ def worst_windows(returns: pd.Series, window: int = 5, count: int = 3) -> pd.Ser
     ordered = rolled.dropna().sort_values()
     positions = {ts: i for i, ts in enumerate(values.index)}
     chosen: list = []
-    for ts, value in ordered.items():
+    for ts in ordered.index:
         if all(abs(positions[ts] - positions[other]) >= window for other in chosen):
             chosen.append(ts)
             if len(chosen) == count:
