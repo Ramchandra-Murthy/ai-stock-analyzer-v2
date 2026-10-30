@@ -8,8 +8,6 @@ None of this predicts the future: it re-weights the past.
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 import pandas as pd
 from scipy.stats import kurtosis, norm, skew
@@ -36,6 +34,12 @@ def _clean(returns: pd.Series, minimum: int = 20) -> pd.Series:
     if len(values) < minimum:
         raise ValueError(f"At least {minimum} return observations are needed.")
     return values
+
+
+def _check_fraction(value: float, name: str) -> None:
+    """Require ``0 < value < 1``; NaN and infinity fail the comparison and are rejected."""
+    if not 0 < value < 1:
+        raise ValueError(f"{name} must be in (0, 1).")
 
 
 def _check_level(level: float) -> None:
@@ -126,8 +130,7 @@ def summarise_paths(paths: np.ndarray, drawdown_limit: float = 0.20) -> dict[str
     """Terminal-wealth percentiles, loss probability and drawdown statistics for ``paths``."""
     if paths.ndim != 2 or paths.shape[1] < 2:
         raise ValueError("paths must be a 2-D array with at least two columns.")
-    if not math.isfinite(drawdown_limit) or drawdown_limit <= 0 or drawdown_limit >= 1:
-        raise ValueError("drawdown_limit must be in (0, 1).")
+    _check_fraction(drawdown_limit, "drawdown_limit")
     terminal = paths[:, -1]
     drawdowns = (paths / np.maximum.accumulate(paths, axis=1) - 1.0).min(axis=1)
     p5, p25, p50, p75, p95 = np.percentile(terminal, [5, 25, 50, 75, 95])
