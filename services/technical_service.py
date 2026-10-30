@@ -1,6 +1,10 @@
+import logging
+
 import pandas as pd
 
 from services.resilient_market_data import download_symbol_frames
+
+logger = logging.getLogger(__name__)
 
 
 def get_price_history(symbol, period="1y"):
@@ -26,10 +30,10 @@ def get_price_history(symbol, period="1y"):
         df = frames.get(symbol)
         if df is None or df.empty:
             if missing:
-                print(f"Price History Error: no usable market data for {symbol}")
+                logger.warning("Price History Error: no usable market data for %s", symbol)
             return None
     except Exception as error:
-        print(f"Price History Error: {error}")
+        logger.warning("Price History Error for %s: %s", symbol, error)
         return None
 
     # --------------------------------------------------------

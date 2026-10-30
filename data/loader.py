@@ -1,4 +1,8 @@
+import logging
+
 from data.database import connect
+
+logger = logging.getLogger(__name__)
 
 
 def save_dataframe(df, symbol):
@@ -33,4 +37,4 @@ def save_dataframe(df, symbol):
     conn.commit()
     conn.close()
 
-    print(f"{symbol} saved to SQLite successfully.")
+    logger.info("%s saved to SQLite successfully.", symbol)
