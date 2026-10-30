@@ -8,9 +8,11 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.ensemble_model import train_ensemble
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(page_title="AI Ensemble ML", page_icon="🤖", layout="wide")
 st.title("🤖 AI Ensemble ML Engine")
+show_disclaimer()
 st.caption("Research monitor: chronological ensemble validation. No live orders are placed.")
 
 symbol = st.text_input("Symbol label", value="RESEARCH")

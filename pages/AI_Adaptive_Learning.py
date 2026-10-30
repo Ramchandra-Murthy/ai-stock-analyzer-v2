@@ -8,9 +8,11 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.learning_loop import learning_loop_summary, run_learning_loop
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(page_title="AI Adaptive Learning", page_icon="🔄", layout="wide")
 st.title("🔄 AI Adaptive Learning Loop")
+show_disclaimer()
 st.caption(
     "Chronological research monitor: each signal is evaluated using only completed "
     "outcomes available before its timestamp. No live orders are placed."

@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
+from components.disclaimer import show_disclaimer
 from scanner.gainers import build_gainer_rows, coverage_message, download_with_fallback
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from services.parallel_download import download_in_parallel
@@ -499,6 +500,7 @@ def show() -> None:
         '<div class="watchlist-subtitle">Personal watchlist · saved investment details · market data when available</div>',
         unsafe_allow_html=True,
     )
+    show_disclaimer()
 
     try:
         _, summary_watchlist_id, _ = get_or_create_default_watchlist()

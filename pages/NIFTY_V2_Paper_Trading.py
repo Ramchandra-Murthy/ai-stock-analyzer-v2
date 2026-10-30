@@ -24,12 +24,14 @@ from engine.nifty_options_v2_market_data import (
 from engine.nifty_options_v2_market_session import market_session_ready
 from engine.nifty_options_v2_provider_guard import provider_data_ready
 from engine.nifty_options_v2_refresh import is_market_hours, refresh_seconds
+from components.disclaimer import show_disclaimer
 from services.options_analytics import fetch_option_chain, fetch_option_chain_cached
 from strategy.nifty_options_v2 import NiftyCallContract
 
 st.set_page_config(page_title="NIFTY V2 Paper Trading", page_icon="📈", layout="wide")
 
 st.title("NIFTY Options V2 — Paper Trading")
+show_disclaimer()
 
 st.warning(
     "PAPER TRADING ONLY — no broker orders are submitted. "

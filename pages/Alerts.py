@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import streamlit as st
 
+from components.disclaimer import show_disclaimer
 from services.alerts import Alert, email_configured, send_email, send_telegram, telegram_configured
 
 st.set_page_config(page_title="Alerts", page_icon="🔔", layout="wide")
 st.title("🔔 Alerts")
+show_disclaimer()
 st.caption(
     "Alerts tell you when a watched symbol's strategy signal changes or its drawdown passes a "
     "limit. Run `python scripts/run_alerts.py` from cron to send them on a schedule. Analysis "

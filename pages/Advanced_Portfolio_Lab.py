@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from algorithmic_trading.concentration import concentration_report
 from algorithmic_trading.lab_inputs import (
     parse_holdings,
     parse_share_counts,
@@ -29,6 +30,7 @@ from algorithmic_trading.risk_advanced import (
     worst_windows,
 )
 from algorithmic_trading.risk_metrics import portfolio_returns
+from scanner.sectors import UNMAPPED, sector_for_ticker
 from services.price_table import load_close_prices, load_returns
 
 st.set_page_config(page_title="Advanced Portfolio Lab", page_icon="🧮", layout="wide")
@@ -101,7 +103,7 @@ st.caption(f"{len(returns)} shared trading days, {first:%d %b %Y} to {last:%d %b
 mean = returns.mean() * TRADING_DAYS
 cov = covariance(returns)
 
-tab_frontier, tab_bl, tab_tail, tab_mc, tab_stress, tab_cvar = st.tabs(
+tab_frontier, tab_bl, tab_tail, tab_mc, tab_stress, tab_cvar, tab_conc = st.tabs(
     [
         "Efficient frontier",
         "Black-Litterman",
@@ -109,6 +111,7 @@ tab_frontier, tab_bl, tab_tail, tab_mc, tab_stress, tab_cvar = st.tabs(
         "Monte Carlo",
         "Stress test",
         "Min-CVaR & rebalance",
+        "Concentration",
     ]
 )
 
@@ -275,6 +278,49 @@ with tab_stress:
             "Each stock's loss is its weight x its beta to the equal-weight basket x the shock. "
             "In real sell-offs correlations rise and losses usually exceed this linear estimate."
         )
+
+with tab_conc:
+    kept = st.session_state.get("apl_tickers", {})
+    sector_of = {
+        name: (None if (sector := sector_for_ticker(ticker)) == UNMAPPED else sector)
+        for name, ticker in kept.items()
+    }
+    try:
+        conc = concentration_report(returns, weights, sector_of)
+    except ValueError as exc:
+        st.error(str(exc))
+        st.stop()
+    n_hold = len(conc.weights)
+    x1, x2, x3 = st.columns(3)
+    x1.metric("Effective holdings", f"{conc.effective_holdings:.1f} of {n_hold}")
+    x2.metric("Herfindahl index", f"{conc.herfindahl:.3f}")
+    top_sector, top_share = conc.sector_weights.index[0], conc.sector_weights.iloc[0]
+    x3.metric("Largest sector", f"{top_sector}", f"{top_share:.0%}")
+    if conc.flags:
+        for flag in conc.flags:
+            st.warning(flag)
+    else:
+        st.success("No concentration flags: weights, sectors and risk are reasonably spread.")
+    by_sector = pd.DataFrame({"Capital share": conc.sector_weights, "Risk share": conc.sector_risk})
+    st.markdown("**Capital vs risk by sector**")
+    st.bar_chart(by_sector.fillna(0.0))
+    per_stock = pd.DataFrame(
+        {"Capital share": conc.weights, "Risk share": conc.risk_share}
+    ).sort_values("Risk share", ascending=False)
+    per_stock["Risk / capital"] = per_stock["Risk share"] / per_stock["Capital share"]
+    per_stock["Sector"] = [sector_of.get(name) or UNMAPPED for name in per_stock.index]
+    st.markdown("**By holding** (a ratio above 1 means the stock adds more risk than its weight)")
+    st.dataframe(
+        per_stock.style.format(
+            {"Capital share": "{:.1%}", "Risk share": "{:.1%}", "Risk / capital": "{:.2f}"}
+        ),
+        use_container_width=True,
+    )
+    st.caption(
+        "Sectors are a coarse built-in grouping of the curated large-cap list, not an official "
+        "classification; anything outside it shows as Unmapped. Risk share is each holding's "
+        "contribution to historical portfolio variance."
+    )
 
 with tab_cvar:
     k1, k2 = st.columns(2)

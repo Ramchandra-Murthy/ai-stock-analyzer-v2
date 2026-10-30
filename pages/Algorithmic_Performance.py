@@ -9,6 +9,7 @@ from algorithmic_trading.multi_stock_validation import evaluate_symbol_universe
 from algorithmic_trading.signal_backtest import backtest_pipeline, generate_pipeline_signals
 from algorithmic_trading.trading_costs import IndiaEquityCostModel
 from algorithmic_trading.walk_forward_validation import walk_forward_evaluate
+from components.disclaimer import show_disclaimer
 from services.resilient_market_data import download_symbol_frames
 
 
@@ -152,6 +153,7 @@ st.set_page_config(
 )
 
 st.title("📊 NSE/BSE Algorithmic Performance")
+show_disclaimer()
 _render_market_data_refresh()
 st.caption(
     "Historical signal performance only. Open paper positions are not treated " "as realized P&L."

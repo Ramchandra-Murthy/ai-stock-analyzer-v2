@@ -8,8 +8,10 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.sequence_model import predict_sequence, train_sequence_model
+from components.disclaimer import show_disclaimer
 
 st.title("AI Sequence / Deep Learning")
+show_disclaimer()
 st.caption("Research-only sequence model with chronological validation; no live orders.")
 
 symbol = st.text_input("Symbol", "RELIANCE.NS")

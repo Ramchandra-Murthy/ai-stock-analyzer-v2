@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from algorithmic_trading.pipeline import analyze_symbol
+from components.disclaimer import show_disclaimer
 from services.cached_download import cached_download
 
 st.set_page_config(
@@ -15,6 +16,7 @@ st.set_page_config(
 )
 
 st.title("🤖 NSE/BSE Algorithmic Trading")
+show_disclaimer()
 st.caption(
     "Research dashboard combining regime, relative strength, measured edge, "
     "signal composition and position sizing. It does not place live orders."

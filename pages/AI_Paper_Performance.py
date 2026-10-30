@@ -7,6 +7,7 @@ import streamlit as st
 
 from ai_trading.paper_trading import PaperPortfolio
 from ai_trading.performance import build_equity_curve, build_performance_report
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(
     page_title="AI Paper Performance",
@@ -15,6 +16,7 @@ st.set_page_config(
 )
 
 st.title("📊 AI Paper Trading Performance")
+show_disclaimer()
 st.caption("Analytics for the current in-memory AI paper-trading session.")
 
 portfolio = st.session_state.get("ai_paper_portfolio")

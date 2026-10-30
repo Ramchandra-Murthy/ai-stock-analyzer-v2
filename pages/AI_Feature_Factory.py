@@ -8,9 +8,11 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.feature_factory import build_ai_feature_frame
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(page_title="AI Feature Factory", page_icon="🧩", layout="wide")
 st.title("🧩 AI Feature Factory")
+show_disclaimer()
 st.caption("Standardized research feature layer combining market, fundamental, and news inputs.")
 
 st.subheader("Market Data")

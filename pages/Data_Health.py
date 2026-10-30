@@ -10,11 +10,13 @@ import pandas as pd
 import streamlit as st
 
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
+from components.disclaimer import show_disclaimer
 from services.data_health import FAIL, PASS, best_form, measure_coverage, verdict
 from services.resilient_market_data import download_symbol_frames
 
 st.set_page_config(page_title="Data Health", page_icon="🩺", layout="wide")
 st.title("🩺 Data Health")
+show_disclaimer()
 st.caption(
     "Checks what this machine can actually fetch. If BSE stocks are missing from a scan, the "
     "coverage test below shows whether the provider is returning them at all."
