@@ -54,9 +54,9 @@ def test_sector_and_stock_limits_are_flagged():
 
 
 def test_balanced_portfolio_has_no_flags():
-    rets = _returns({n: 0.01 for n in "ABCDEFGH"})
+    rets = _returns(dict.fromkeys("ABCDEFGH", 0.01))
     sectors = {n: f"S{i % 4}" for i, n in enumerate("ABCDEFGH")}
-    report = concentration_report(rets, {n: 1 for n in "ABCDEFGH"}, sectors)
+    report = concentration_report(rets, dict.fromkeys("ABCDEFGH", 1), sectors)
     assert report.flags == []
     assert report.effective_holdings == pytest.approx(8.0)
 

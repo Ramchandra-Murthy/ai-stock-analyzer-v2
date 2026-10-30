@@ -9,8 +9,8 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from components.disclaimer import show_disclaimer
+from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from services.data_health import FAIL, PASS, best_form, measure_coverage, verdict
 from services.resilient_market_data import download_symbol_frames
 

@@ -6,8 +6,8 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.calibration import evaluate_calibration, monitor_calibration_frames
-from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from components.disclaimer import show_disclaimer
+from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from services.cached_download import cached_download
 
 st.set_page_config(
