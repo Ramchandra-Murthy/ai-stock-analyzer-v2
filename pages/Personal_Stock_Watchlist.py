@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date, datetime, time
 from typing import Any
@@ -25,6 +26,8 @@ from services.watchlist_service import (
     update_stock_details,
 )
 from services.watchlist_ui import get_or_create_default_watchlist
+
+logger = logging.getLogger(__name__)
 
 EXCHANGES = {"NSE": ".NS", "BSE": ".BO"}
 STATUSES = ["Watching", "Bought", "Sold", "Avoid"]
@@ -180,7 +183,8 @@ def _scan_market_gainers(
                     row["Cap segment"] = "Mid-cap"
                 else:
                     row["Cap segment"] = "Small-cap"
-        except Exception:
+        except Exception as exc:
+            logger.debug("Market cap lookup failed for %s: %s", row["Ticker"], exc)
             continue
 
     frame = pd.DataFrame(rows)

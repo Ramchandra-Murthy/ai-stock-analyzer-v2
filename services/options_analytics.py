@@ -7,6 +7,7 @@ Provider availability and timestamps are surfaced rather than inferred.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections.abc import Callable
@@ -17,6 +18,8 @@ import yfinance as yf
 from curl_cffi import requests as curl_requests
 
 from services.dhan_market_data import DhanCredentials, DhanMarketData
+
+logger = logging.getLogger(__name__)
 
 OPTIONS_UNDERLYINGS = {
     "NIFTY": "^NSEI",
@@ -85,16 +88,16 @@ def available_expiries(underlying: str) -> tuple[str, ...]:
         dhan_expiries = _fetch_dhan_expiries(underlying)
         if dhan_expiries:
             return dhan_expiries
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Dhan expiry fetch failed for %s: %s", underlying, exc)
 
     try:
         payload = _fetch_nse_option_chain(underlying)
         expiries = _nse_expiries(payload)
         if expiries:
             return expiries
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("NSE expiry fetch failed for %s: %s", underlying, exc)
 
     symbol = OPTIONS_UNDERLYINGS[underlying]
     try:
@@ -518,10 +521,10 @@ def _nse_session() -> curl_requests.Session:
             },
             timeout=10,
         )
-    except Exception:
+    except Exception as exc:
+        logger.debug("NSE session warm-up failed (API may still work): %s", exc)
         # The API request remains the source of truth; some environments
         # block the NSE web pages while allowing the API endpoint.
-        pass
     return session
 
 
@@ -725,5 +728,6 @@ def _spot_price(ticker: yf.Ticker) -> float | None:
         if history.empty:
             return None
         return float(history["Close"].dropna().iloc[-1])
-    except Exception:
+    except Exception as exc:
+        logger.debug("Spot price lookup failed: %s", exc)
         return None

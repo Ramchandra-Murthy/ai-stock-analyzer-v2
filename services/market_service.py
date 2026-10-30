@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, time
 from typing import Any
@@ -11,6 +12,8 @@ import pandas as pd
 import yfinance as yf
 
 from services.resilient_market_data import download_symbol_frames
+
+logger = logging.getLogger(__name__)
 
 MARKET_INDICES = {
     "NIFTY 50": "^NSEI",
@@ -165,8 +168,8 @@ def get_company_name(ticker: str) -> str:
         name = info.get("longName") or info.get("shortName")
         if isinstance(name, str) and name.strip():
             return name.strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Company name lookup failed for %s: %s", ticker, exc)
 
     try:
         quotes = yf.Search(ticker, max_results=8, news_count=0).quotes
@@ -182,8 +185,8 @@ def get_company_name(ticker: str) -> str:
             name = quote.get("longname") or quote.get("shortname")
             if isinstance(name, str) and name.strip():
                 return name.strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Symbol search failed for %s: %s", ticker, exc)
 
     return ticker
 

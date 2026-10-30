@@ -9,6 +9,7 @@ Set WATCHLIST_DATABASE_PATH to a durable writable path in deployed environments.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -18,6 +19,8 @@ import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_DATABASE_PATH = Path("data/watchlists.sqlite3")
 OWNER_ID = "local-owner"
@@ -434,9 +437,9 @@ def _supabase_credentials() -> tuple[str, str] | None:
                 secrets.get("SUPABASE_SECRET_KEY", "")
                 or secrets.get("SUPABASE_SERVICE_ROLE_KEY", "")
             ).strip()
-    except Exception:
+    except Exception as exc:
+        logger.debug("Streamlit secrets unavailable: %s", exc)
         # Streamlit may not be installed in service-only tests or CLI scripts.
-        pass
     if url and key:
         return url, key
     return None

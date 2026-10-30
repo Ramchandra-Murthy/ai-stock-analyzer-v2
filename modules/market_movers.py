@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from time import perf_counter
@@ -13,6 +14,8 @@ import yfinance as yf
 
 from scanner.dynamic_universe import merge_bse_universe, merge_nse_universe
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
+
+logger = logging.getLogger(__name__)
 
 IST = ZoneInfo("Asia/Kolkata")
 BATCH_SIZE = 40
@@ -62,7 +65,8 @@ def _market_cap(ticker: str) -> float | None:
         value = yf.Ticker(ticker).fast_info.get("market_cap")
         number = float(value) if value is not None else 0.0
         return number if number > 0 else None
-    except Exception:
+    except Exception as exc:
+        logger.debug("Market cap lookup failed for %s: %s", ticker, exc)
         return None
 
 

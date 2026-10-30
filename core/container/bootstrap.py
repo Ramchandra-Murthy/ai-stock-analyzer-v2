@@ -4,10 +4,14 @@ Container Bootstrap / Composition Root
 ==========================================================
 """
 
+import logging
+
 from core.container.container import container
 from core.container.registry import ServiceKey
 from services.valuation.dispatcher import ValuationDispatcher
 from services.valuation.models import ValuationMethod, ValuationResult
+
+logger = logging.getLogger(__name__)
 
 
 class ResearchServiceFacade:
@@ -31,13 +35,13 @@ def bootstrap_container() -> None:
     """Wire up core services into the container."""
     try:
         container.register_singleton(ServiceKey.RESEARCH, ResearchServiceFacade())
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Could not register the research service: %s", exc)
 
     try:
         dispatcher = ValuationDispatcher()
         for method in (ValuationMethod.DCF, ValuationMethod.NAV, ValuationMethod.SOTP):
             dispatcher.register(_CompatibilityValuationEngine(method))
         container.register_singleton("valuation_dispatcher", dispatcher)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Could not register the valuation dispatcher: %s", exc)

@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import pandas as pd
@@ -18,6 +19,8 @@ from scanner.dynamic_universe import (
     merge_nse_universe,
 )
 from services.sector_mapping import sector_for_symbol
+
+logger = logging.getLogger(__name__)
 
 TOP_CANDIDATES_TO_ANALYZE = 20
 DISPLAY_COUNT = 20
@@ -84,8 +87,13 @@ def _download_chunk(chunk: list[str]) -> pd.DataFrame:
         )
         if history is not None and not history.empty:
             return history
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            "Price download attempt failed, retrying single-threaded (%d symbols, first: %s): %s",
+            len(chunk),
+            chunk[0] if chunk else "-",
+            exc,
+        )
 
     try:
         history = yf.download(
@@ -98,7 +106,13 @@ def _download_chunk(chunk: list[str]) -> pd.DataFrame:
             threads=False,
             timeout=15,
         )
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Price download failed for a chunk of %d symbols (first: %s): %s",
+            len(chunk),
+            chunk[0] if chunk else "-",
+            exc,
+        )
         return pd.DataFrame()
     return history if history is not None else pd.DataFrame()
 
@@ -118,8 +132,13 @@ def _download_analysis_chunk(chunk: list[str]) -> pd.DataFrame:
         )
         if history is not None and not history.empty:
             return history
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug(
+            "Price download attempt failed, retrying single-threaded (%d symbols, first: %s): %s",
+            len(chunk),
+            chunk[0] if chunk else "-",
+            exc,
+        )
 
     try:
         history = yf.download(
@@ -132,7 +151,13 @@ def _download_analysis_chunk(chunk: list[str]) -> pd.DataFrame:
             threads=False,
             timeout=20,
         )
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Price download failed for a chunk of %d symbols (first: %s): %s",
+            len(chunk),
+            chunk[0] if chunk else "-",
+            exc,
+        )
         return pd.DataFrame()
     return history if history is not None else pd.DataFrame()
 
