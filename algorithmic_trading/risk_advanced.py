@@ -8,6 +8,8 @@ None of this predicts the future: it re-weights the past.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 from scipy.stats import kurtosis, norm, skew
@@ -124,7 +126,7 @@ def summarise_paths(paths: np.ndarray, drawdown_limit: float = 0.20) -> dict[str
     """Terminal-wealth percentiles, loss probability and drawdown statistics for ``paths``."""
     if paths.ndim != 2 or paths.shape[1] < 2:
         raise ValueError("paths must be a 2-D array with at least two columns.")
-    if not 0 < drawdown_limit < 1:
+    if not math.isfinite(drawdown_limit) or drawdown_limit <= 0 or drawdown_limit >= 1:
         raise ValueError("drawdown_limit must be in (0, 1).")
     terminal = paths[:, -1]
     drawdowns = (paths / np.maximum.accumulate(paths, axis=1) - 1.0).min(axis=1)

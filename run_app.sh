@@ -9,5 +9,8 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-uv sync --locked
-exec uv run streamlit run app.py "$@"
+# Same flags as the Dockerfile: only prebuilt wheels from uv.lock (no package build scripts
+# run), runtime dependencies only. The app imports first-party code from this folder, so the
+# project itself does not need installing. Use `make install` for the full dev environment.
+uv sync --locked --no-dev --no-install-project --no-build
+exec uv run --no-sync streamlit run app.py "$@"
