@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 
+from components.disclaimer import show_disclaimer
 from engine.nifty_options_v2_auto import NiftyOptionsV2AutoPaper
 from engine.nifty_options_v2_auto_cycle import NiftyOptionsV2AutoCycle
 from engine.nifty_options_v2_cycle_status import cycle_status
@@ -30,6 +31,7 @@ from strategy.nifty_options_v2 import NiftyCallContract
 st.set_page_config(page_title="NIFTY V2 Paper Trading", page_icon="📈", layout="wide")
 
 st.title("NIFTY Options V2 — Paper Trading")
+show_disclaimer()
 
 st.warning(
     "PAPER TRADING ONLY — no broker orders are submitted. "

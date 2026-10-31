@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from algorithmic_trading.signal_backtest import backtest_pipeline
+from components.disclaimer import show_disclaimer
 from services.cached_download import cached_download
 
 st.set_page_config(
@@ -15,6 +16,7 @@ st.set_page_config(
 )
 
 st.title("📈 NSE/BSE Algorithmic Backtest")
+show_disclaimer()
 st.caption(
     "Tests the same regime and relative-strength signal used by the algorithmic "
     "scanner. Historical results are research results, not future-return forecasts."

@@ -1,4 +1,8 @@
+import logging
+
 import yfinance as yf
+
+logger = logging.getLogger(__name__)
 
 
 def get_company_news(symbol):
@@ -141,6 +145,6 @@ def get_company_news(symbol):
 
     except Exception as error:
 
-        print(f"News Error: {error}")
+        logger.warning("News fetch failed: %s", error)
 
         return []

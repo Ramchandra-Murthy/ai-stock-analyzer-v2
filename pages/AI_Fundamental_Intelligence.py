@@ -11,6 +11,7 @@ from ai_trading.fundamental_intelligence import (
     fundamental_quality_score,
     normalize_fundamentals,
 )
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(
     page_title="AI Fundamental Intelligence",
@@ -18,6 +19,7 @@ st.set_page_config(
     layout="wide",
 )
 st.title("📊 AI Fundamental Intelligence")
+show_disclaimer()
 st.caption(
     "Research analytics: normalize company fundamentals and inspect a transparent quality score."
 )

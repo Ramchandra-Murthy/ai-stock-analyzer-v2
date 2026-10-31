@@ -1,8 +1,11 @@
+import logging
 import math
 
 import yfinance as yf
 
 from services.market_service import get_latest_available_price
+
+logger = logging.getLogger(__name__)
 
 
 def _get_fast_info(ticker):
@@ -104,7 +107,7 @@ def _calculate_roe(ticker):
         roe = net_income / average if average > 0 else None
         return roe if roe is not None and math.isfinite(roe) else None
     except Exception as error:
-        print(f"ROE Calculation Error: {error}")
+        logger.warning("ROE Calculation Error: %s", error)
         return None
 
 
@@ -144,7 +147,7 @@ def _calculate_roa(ticker):
         roa = net_income / average if average > 0 else None
         return roa if roa is not None and math.isfinite(roa) else None
     except Exception as error:
-        print(f"ROA Calculation Error: {error}")
+        logger.warning("ROA Calculation Error: %s", error)
         return None
 
 
@@ -166,7 +169,7 @@ def _calculate_current_ratio(ticker):
         ratio = assets / liabilities
         return ratio if math.isfinite(ratio) else None
     except Exception as error:
-        print(f"Current Ratio Calculation Error: {error}")
+        logger.warning("Current Ratio Calculation Error: %s", error)
         return None
 
 
@@ -187,7 +190,7 @@ def _calculate_operating_cash_flow(ticker):
             latest,
         )
     except Exception as error:
-        print(f"Operating Cash Flow Calculation Error: {error}")
+        logger.warning("Operating Cash Flow Calculation Error: %s", error)
         return None
 
 
@@ -220,7 +223,7 @@ def _calculate_free_cash_flow(ticker):
         value = operating + capex if capex < 0 else operating - capex
         return value if math.isfinite(value) else None
     except Exception as error:
-        print(f"Free Cash Flow Calculation Error: {error}")
+        logger.warning("Free Cash Flow Calculation Error: %s", error)
         return None
 
 
@@ -428,5 +431,5 @@ def get_stock_profile(symbol):
             "market_state": "UNKNOWN",
         }
     except Exception as error:
-        print(f"Stock Profile Error: {error}")
+        logger.warning("Stock Profile Error: %s", error)
         return None

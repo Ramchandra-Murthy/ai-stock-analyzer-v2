@@ -12,12 +12,14 @@ from ai_trading.ml_model import predict_latest, train_model
 from ai_trading.ml_scanner import scan_universe as scan_ml_universe
 from ai_trading.signal_history import attach_outcomes, record_signal
 from ai_trading.walk_forward import walk_forward_backtest
+from components.disclaimer import show_disclaimer
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from services.resilient_market_data import download_symbol_frames
 
 st.set_page_config(page_title="AI Trading Intelligence", page_icon="🧠", layout="wide")
 
 st.title("🧠 AI Trading Intelligence")
+show_disclaimer()
 st.caption("AI-oriented market feature and signal research. No broker orders are submitted.")
 
 left, right = st.columns(2)

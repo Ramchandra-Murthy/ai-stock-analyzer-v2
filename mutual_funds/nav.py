@@ -8,6 +8,8 @@ published end-of-day values; mfapi can lag AMFI by a day and is a third-party se
 from __future__ import annotations
 
 import json
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
@@ -19,12 +21,23 @@ BASE_URL = "https://api.mfapi.in"
 Fetch = Callable[[str], Any]
 
 
-def default_fetch(url: str) -> Any:
+def default_fetch(url: str, attempts: int = 3, pause: float = 1.0) -> Any:
+    """GET JSON from mfapi.in, retrying transient network errors with a short back-off."""
     if not url.startswith(BASE_URL + "/"):
         raise ValueError("Only mfapi.in URLs are allowed.")
     request = urllib.request.Request(url, headers={"User-Agent": "ai-stock-analyzer/2"})
-    with urllib.request.urlopen(request, timeout=20) as response:  # noqa: S310 - fixed https host
-        return json.loads(response.read().decode("utf-8"))
+    last: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=20) as response:  # noqa: S310
+                return json.loads(response.read().decode("utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:  # URLError/HTTPError are OSErrors
+            last = exc
+            if isinstance(exc, urllib.error.HTTPError) and 400 <= exc.code < 500:
+                break  # a client error will not fix itself
+            if attempt < attempts - 1:
+                time.sleep(pause * (attempt + 1))
+    raise ConnectionError(f"Could not reach mfapi.in ({last}). Check your network and retry.")
 
 
 def parse_nav_response(payload: Any) -> tuple[dict[str, Any], pd.Series]:

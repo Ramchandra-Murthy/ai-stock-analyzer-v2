@@ -12,6 +12,8 @@ import pandas as pd
 
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 
+logger = logging.getLogger(__name__)
+
 NSE_EQUITY_LIST_URL = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
 BSE_SECURITIES_URL = "https://api.bseindia.com/BseIndiaAPI/api/ListofScripData/w"
 CACHE_TTL_SECONDS = 15 * 60
@@ -115,8 +117,8 @@ def dynamic_nse_symbols() -> list[str]:
         if symbols:
             _cached_nse_symbols = (now, symbols)
             return symbols
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("NSE equity list download failed, using the curated list: %s", exc)
 
     return list(NSE_CANDIDATES)
 

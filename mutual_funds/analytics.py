@@ -247,7 +247,13 @@ def daily_returns(nav: pd.Series) -> pd.Series:
 
 
 def monthly_returns(nav: pd.Series) -> pd.Series:
-    return _check(nav).resample("ME").last().pct_change().dropna()
+    """Month-end returns. Time zones are dropped so a tz-aware benchmark (Yahoo) lines up
+    with tz-naive AMFI NAV dates instead of silently sharing no months."""
+    series = _check(nav)
+    if getattr(series.index, "tz", None) is not None:
+        series = series.copy()
+        series.index = series.index.tz_localize(None)
+    return series.resample("ME").last().pct_change().dropna()
 
 
 def risk_metrics(nav: pd.Series, risk_free: float = 0.065) -> dict[str, float]:

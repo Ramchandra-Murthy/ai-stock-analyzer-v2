@@ -7,12 +7,15 @@ from the environment and are never logged or persisted by this module.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+logger = logging.getLogger(__name__)
 
 NIFTY_50_SECURITY_ID = 13
 NIFTY_INDEX_SEGMENT = "IDX_I"
@@ -50,9 +53,9 @@ class DhanCredentials:
                     client_id = str(secrets.get("DHAN_CLIENT_ID", "")).strip()
                 if not access_token:
                     access_token = str(secrets.get("DHAN_ACCESS_TOKEN", "")).strip()
-            except Exception:
+            except Exception as exc:
+                logger.debug("Streamlit secrets unavailable: %s", exc)
                 # Streamlit may be absent or secrets may be unavailable in CLI/tests.
-                pass
 
         missing = [
             name

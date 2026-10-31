@@ -223,3 +223,35 @@ def test_compare_funds_sorted_and_validated():
     assert set(t.index) == {"A", "B"} and t["Sharpe"].is_monotonic_decreasing
     with pytest.raises(ValueError):
         mf.compare_funds({"A": _nav(0.2), "B": _nav(0.2, seed=1)})
+
+
+def test_benchmark_with_timezone_overlaps_naive_nav():
+    import numpy as np
+
+    from mutual_funds.analytics import capture_and_beta
+
+    idx = pd.bdate_range("2018-01-01", "2024-12-31")
+    rng = np.random.default_rng(1)
+    fund = pd.Series(100 * np.cumprod(1 + rng.normal(5e-4, 0.01, len(idx))), index=idx)
+    bench = pd.Series(
+        1e4 * np.cumprod(1 + rng.normal(5e-4, 0.01, len(idx))),
+        index=idx.tz_localize("Asia/Kolkata"),
+    )
+    assert capture_and_beta(fund, bench)["months"] > 60
+
+
+def test_default_fetch_retries_then_reports(monkeypatch):
+    import urllib.request
+
+    from mutual_funds import nav as nav_module
+
+    calls = []
+
+    def boom(*_a, **_k):
+        calls.append(1)
+        raise OSError("down")
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    with pytest.raises(ConnectionError):
+        nav_module.default_fetch(nav_module.BASE_URL + "/mf/1", attempts=3, pause=0)
+    assert len(calls) == 3

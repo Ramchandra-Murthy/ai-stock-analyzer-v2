@@ -10,10 +10,12 @@ from ai_trading.adaptive_performance import (
     adaptive_effect_summary,
     adaptive_performance_summary,
 )
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(page_title="AI Adaptive Performance", page_icon="📊", layout="wide")
 
 st.title("📊 AI Adaptive Signal Performance")
+show_disclaimer()
 st.caption(
     "Historical monitoring of the adaptive AI confidence layer. " "No broker orders are submitted."
 )

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date, datetime, time
 from typing import Any
@@ -11,6 +12,7 @@ import pandas as pd
 import streamlit as st
 import yfinance as yf
 
+from components.disclaimer import show_disclaimer
 from scanner.gainers import build_gainer_rows, coverage_message, download_with_fallback
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from services.parallel_download import download_in_parallel
@@ -24,6 +26,8 @@ from services.watchlist_service import (
     update_stock_details,
 )
 from services.watchlist_ui import get_or_create_default_watchlist
+
+logger = logging.getLogger(__name__)
 
 EXCHANGES = {"NSE": ".NS", "BSE": ".BO"}
 STATUSES = ["Watching", "Bought", "Sold", "Avoid"]
@@ -179,7 +183,8 @@ def _scan_market_gainers(
                     row["Cap segment"] = "Mid-cap"
                 else:
                     row["Cap segment"] = "Small-cap"
-        except Exception:
+        except Exception as exc:
+            logger.debug("Market cap lookup failed for %s: %s", row["Ticker"], exc)
             continue
 
     frame = pd.DataFrame(rows)
@@ -499,6 +504,7 @@ def show() -> None:
         '<div class="watchlist-subtitle">Personal watchlist · saved investment details · market data when available</div>',
         unsafe_allow_html=True,
     )
+    show_disclaimer()
 
     try:
         _, summary_watchlist_id, _ = get_or_create_default_watchlist()

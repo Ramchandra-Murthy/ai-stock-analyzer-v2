@@ -1,10 +1,13 @@
 """Scan symbols saved in the user's personal watchlist."""
 
+import logging
 from typing import Any
 
 import pandas as pd
 
 from services.analyzer import analyze_stock
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_ticker(symbol: str) -> str:
@@ -45,8 +48,9 @@ def scan_watchlist(symbols: list[str]) -> pd.DataFrame:
                     "Recommendation": signal["Recommendation"],
                 }
             )
-        except Exception:
+        except Exception as exc:
             # One unavailable/invalid ticker must not prevent the rest of the list.
+            logger.warning("Analysis failed for %s: %s", ticker, exc)
             continue
     if not rows:
         return pd.DataFrame()
