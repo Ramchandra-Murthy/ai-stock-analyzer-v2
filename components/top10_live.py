@@ -16,6 +16,7 @@ import streamlit as st
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from services.dhan_live_provider import dhan_provider_enabled, download_dhan_symbol_frames
 from services.resilient_market_data import download_symbol_frames
+from services.symbol_resolver import yahoo_ticker
 
 TOP10_REFRESH_SECONDS = 60
 TOP10_UI_POLL_SECONDS = 2
@@ -82,7 +83,7 @@ def _market_is_open(now: datetime) -> bool:
 def _ticker(symbol: str, exchange: str) -> str:
     suffix = ".NS" if exchange == "NSE" else ".BO"
     cleaned = str(symbol).strip().upper()
-    return cleaned if cleaned.endswith((".NS", ".BO")) else f"{cleaned}{suffix}"
+    return yahoo_ticker(cleaned if cleaned.endswith((".NS", ".BO")) else f"{cleaned}{suffix}")
 
 
 def _extract_close(history: pd.DataFrame, ticker: str) -> pd.Series:
