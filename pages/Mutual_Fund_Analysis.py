@@ -150,11 +150,36 @@ with tab_one:
                 st.error(f"Could not analyse this scheme: {exc}")
 
 with tab_cmp:
-    codes = st.text_input("Scheme codes (comma separated, from the search above)", "118834,120503")
+    results_cmp = st.session_state.get("mf_results")
+    picked: list[str] = []
+    if results_cmp is not None and not results_cmp.empty:
+        names = st.multiselect(
+            "Pick funds from your search results (search on the Single fund tab first)",
+            list(results_cmp["schemeName"]),
+        )
+        picked = [
+            str(results_cmp.loc[results_cmp["schemeName"] == n, "schemeCode"].iloc[0])
+            for n in names
+        ]
+    codes = st.text_input(
+        "Or type scheme codes (numbers, comma separated)",
+        "" if picked else "118834,120503",
+        help="Fund names do not work here: search by name on the Single fund tab, then pick.",
+    )
     if st.button("Compare", key="cmp"):
         try:
+            typed = [x.strip() for x in codes.split(",") if x.strip()]
+            bad = [x for x in typed if not x.isdigit()]
+            if bad:
+                raise ValueError(
+                    f"'{bad[0]}' is a name, not a scheme code. Search for it on the Single "
+                    "fund tab, then pick it in the list above (or type its numeric code)."
+                )
+            wanted = list(dict.fromkeys(picked + typed))
+            if len(wanted) < 2:
+                raise ValueError("Choose at least two funds to compare.")
             navs = {}
-            for c in [x.strip() for x in codes.split(",") if x.strip()]:
+            for c in wanted:
                 meta, nav = _scheme(c)
                 navs[str(meta.get("scheme_name", c))[:45]] = nav
             st.dataframe(
