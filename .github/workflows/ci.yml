@@ -32,32 +32,28 @@ jobs:
     - name: Check formatting with Black
       run: uv run --locked --no-sync --no-build black --check --diff --force-exclude '(^|/)(\\.venv|venv|archive|backup_before_v2)/' .
     - name: Type check supported runtime surface
-      run: |
-        set +e
-        uv run --locked --no-sync --no-build mypy \
-        services/ai_service.py \
-        services/fundamental_score_service.py \
-        services/recommendation_service.py \
-        services/score_service.py \
-        services/target_price_service.py \
-        services/technical_score_service.py \
-        services/trade_plan_service.py \
-        services/ui_formatters.py \
-        services/symbol_resolver.py \
-        services/price_table.py \
-        scanner/gainers.py \
-        algorithmic_trading/lab_inputs.py \
-        algorithmic_trading/concentration.py \
-        algorithmic_trading/portfolio_advanced.py \
-        algorithmic_trading/portfolio_tools.py \
-        algorithmic_trading/risk_advanced.py \
-        algorithmic_trading/execution.py \
-        algorithmic_trading/attribution.py \
-        algorithmic_trading/risk_guards.py \
-        algorithmic_trading/ml_diagnostics.py  > /tmp/mypy.txt 2>&1
-        code=$?
-        head -40 /tmp/mypy.txt | while IFS= read -r line; do echo "::error title=mypy::$line"; done
-        exit $code
+      run: >-
+        uv run --locked --no-sync --no-build mypy
+        services/ai_service.py
+        services/fundamental_score_service.py
+        services/recommendation_service.py
+        services/score_service.py
+        services/target_price_service.py
+        services/technical_score_service.py
+        services/trade_plan_service.py
+        services/ui_formatters.py
+        services/symbol_resolver.py
+        services/price_table.py
+        scanner/gainers.py
+        algorithmic_trading/lab_inputs.py
+        algorithmic_trading/concentration.py
+        algorithmic_trading/portfolio_advanced.py
+        algorithmic_trading/portfolio_tools.py
+        algorithmic_trading/risk_advanced.py
+        algorithmic_trading/execution.py
+        algorithmic_trading/attribution.py
+        algorithmic_trading/risk_guards.py
+        algorithmic_trading/ml_diagnostics.py
     - name: Test repaired contracts and market-data boundaries
       env:
         PYTHONPATH: ${{ github.workspace }}

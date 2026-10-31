@@ -42,7 +42,7 @@ def u_shaped_profile(slices: int) -> np.ndarray:
         raise ValueError("slices must be at least 1.")
     x = np.linspace(-1.0, 1.0, slices)
     profile = 1.0 + 1.5 * x**2
-    return profile / profile.sum()
+    return np.asarray(profile / profile.sum(), dtype=float)
 
 
 def twap_schedule(shares: int, slices: int) -> np.ndarray:
