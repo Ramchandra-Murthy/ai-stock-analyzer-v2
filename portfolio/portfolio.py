@@ -5,24 +5,35 @@ import pandas as pd
 DATABASE = "stock_data.db"
 
 
-def create_portfolio_table():
+_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS portfolio(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        symbol TEXT,
+        quantity INTEGER,
+        buy_price REAL
+    )
+"""
+
+
+def _connect() -> sqlite3.Connection:
+    """Open the database and make sure the table exists.
+
+    The database file is not tracked in git, so a fresh deploy (Streamlit Cloud, a new
+    clone) has no ``portfolio`` table; querying it used to crash the dashboard.
+    """
     conn = sqlite3.connect(DATABASE)
+    conn.execute(_SCHEMA)
+    return conn
 
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS portfolio(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            symbol TEXT,
-            quantity INTEGER,
-            buy_price REAL
-        )
-    """)
 
+def create_portfolio_table():
+    conn = _connect()
     conn.commit()
     conn.close()
 
 
 def add_stock(symbol, quantity, buy_price):
-    conn = sqlite3.connect(DATABASE)
+    conn = _connect()
 
     conn.execute(
         "INSERT INTO portfolio(symbol, quantity, buy_price) VALUES (?, ?, ?)",
@@ -34,7 +45,7 @@ def add_stock(symbol, quantity, buy_price):
 
 
 def load_portfolio():
-    conn = sqlite3.connect(DATABASE)
+    conn = _connect()
 
     df = pd.read_sql("SELECT * FROM portfolio", conn)
 
@@ -44,7 +55,7 @@ def load_portfolio():
 
 
 def delete_stock(stock_id):
-    conn = sqlite3.connect(DATABASE)
+    conn = _connect()
 
     conn.execute("DELETE FROM portfolio WHERE id=?", (stock_id,))
 
@@ -53,7 +64,7 @@ def delete_stock(stock_id):
 
 
 def update_stock(stock_id, quantity, buy_price):
-    conn = sqlite3.connect(DATABASE)
+    conn = _connect()
 
     conn.execute(
         """
@@ -69,7 +80,7 @@ def update_stock(stock_id, quantity, buy_price):
 
 
 def clear_portfolio():
-    conn = sqlite3.connect(DATABASE)
+    conn = _connect()
 
     conn.execute("DELETE FROM portfolio")
 
