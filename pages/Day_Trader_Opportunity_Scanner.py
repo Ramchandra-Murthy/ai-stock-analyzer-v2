@@ -9,6 +9,7 @@ from api.main import _SCAN_MANAGER
 from scanner.day_trader_opportunity import scan_day_trader_opportunities
 from scanner.price_jump_history import append_price_jump_snapshot
 from scanner.price_jump_history_analytics import summarize_price_jump_history
+from components.disclaimer import show_disclaimer
 from services.price_jump_watchlist_delta import compare_watchlists
 from services.intraday_alert_engine import (
     alert_history_frame,
@@ -68,6 +69,7 @@ st.set_page_config(
 )
 
 st.title("⚡ Day-Trader Opportunity Scanner")
+show_disclaimer()
 control_left, control_right = st.columns([3, 1])
 with control_left:
     st.caption(

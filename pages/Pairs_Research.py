@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import pandas as pd
 import streamlit as st
 
 from algorithmic_trading.pairs_trading import BANK_PAIRS, backtest_pair, scan_pairs
-from services.cached_download import cached_download
+from services.price_table import load_close_prices
+from services.symbol_resolver import company_label, resolve_symbol
 
 st.set_page_config(page_title="Pairs Research", page_icon="🔗", layout="wide")
 st.title("🔗 Pairs Research")
@@ -21,36 +21,51 @@ st.caption(
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def _closes(symbols: tuple[str, ...], period: str) -> pd.DataFrame:
-    tickers = [f"{s}.NS" for s in symbols]
-    raw = cached_download(tickers, period=period, auto_adjust=True, progress=False)
-    if raw is None or raw.empty:
-        return pd.DataFrame()
-    close = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw[["Close"]]
-    if not isinstance(raw.columns, pd.MultiIndex):
-        close.columns = tickers[:1]
-    close.columns = [str(c).removesuffix(".NS") for c in close.columns]
-    return close
+def _closes(items: tuple[tuple[str, str], ...], period: str):
+    return load_close_prices(dict(items), period)
 
 
 period = st.selectbox("History", ["5y", "10y"], index=0)
-custom = st.text_input("Custom pair (two NSE symbols, optional)", "")
-pairs = list(BANK_PAIRS)
-if custom.strip():
-    parts = custom.replace("/", " ").replace(",", " ").upper().split()
-    if len(parts) == 2:
-        pairs = [(parts[0], parts[1])]
+exchange = st.selectbox("Exchange for plain names in a custom pair", ["NSE", "BSE"])
+custom = st.text_input(
+    "Custom pair (two symbols, optional): `TCS INFY`, `NSE:TCS BSE:500209`, `500325.BO 532540.BO`",
+    "",
+)
+legs: dict[str, str] = {}  # label -> Yahoo ticker
+
+
+def _leg(raw: str, default: str) -> str:
+    ticker = resolve_symbol(raw, default).ticker
+    label = company_label(ticker)
+    legs[label] = ticker
+    return label
+
+
+pairs: list[tuple[str, str]] = []
+try:
+    if custom.strip():
+        parts = custom.replace("/", " ").replace(",", " ").split()
+        if len(parts) != 2:
+            raise ValueError("Enter exactly two symbols.")
+        pairs = [(_leg(parts[0], exchange), _leg(parts[1], exchange))]
     else:
-        st.error("Enter exactly two symbols.")
-        st.stop()
+        pairs = [(_leg(a, "NSE"), _leg(b, "NSE")) for a, b in BANK_PAIRS]
+    if len({legs[x] for pair in pairs for x in pair}) < 2:
+        raise ValueError("The two legs of a pair must be different securities.")
+except ValueError as exc:
+    st.error(str(exc))
+    st.stop()
 cost = st.number_input("Cost per trade, each side (bps of gross)", 0.0, 100.0, 10.0, 1.0)
 
 if st.button("Scan and backtest", type="primary"):
-    symbols = tuple(sorted({s for p in pairs for s in p}))
-    prices = _closes(symbols, period)
+    wanted = sorted({s for p in pairs for s in p})
+    prices, missing = _closes(tuple((name, legs[name]) for name in wanted), period)
     if prices.empty:
         st.error("No price data came back. Try again shortly.")
         st.stop()
+    if missing:
+        st.warning(f"No price history for {', '.join(missing)}; pairs using them are skipped.")
+    pairs = [p for p in pairs if all(name in prices.columns for name in p)]
     table = scan_pairs(prices, pairs)
     if table.empty:
         st.info("None of these pairs had enough data.")

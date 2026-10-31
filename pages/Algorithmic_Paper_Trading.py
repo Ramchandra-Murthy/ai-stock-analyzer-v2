@@ -7,6 +7,7 @@ import streamlit as st
 from algorithmic_trading.algorithmic_paper import rebalance_from_scan
 from algorithmic_trading.algorithmic_scanner import scan_universe
 from algorithmic_trading.paper_trading import PaperPortfolio
+from components.disclaimer import show_disclaimer
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 
 st.set_page_config(
@@ -16,6 +17,7 @@ st.set_page_config(
 )
 
 st.title("🧪 NSE/BSE Algorithmic Paper Trading")
+show_disclaimer()
 st.caption(
     "Manual simulation only. Scanner decisions can be applied to an in-memory "
     "paper portfolio; no broker connection or live order is submitted."

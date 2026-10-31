@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from algorithmic_trading.lab_inputs import parse_holdings, resolve_holdings
 from algorithmic_trading.risk_metrics import (
     breaker_simulation,
     drawdown_series,
@@ -12,7 +13,7 @@ from algorithmic_trading.risk_metrics import (
     risk_contributions,
     risk_summary,
 )
-from services.cached_download import cached_download
+from services.price_table import load_returns
 
 st.set_page_config(page_title="Risk Dashboard", page_icon="🛡️", layout="wide")
 st.title("🛡️ Risk Dashboard")
@@ -20,9 +21,15 @@ st.warning("RESEARCH ONLY — historical risk estimates understate tail events. 
 
 DEFAULT = "RELIANCE 30\nTCS 25\nHDFCBANK 25\nITC 20"
 text = st.text_area(
-    "Holdings: one `SYMBOL weight` per line (NSE symbols, weights are relative)", DEFAULT
+    "Holdings: one `SYMBOL weight` per line (weights are relative). Accepts `TCS`, `TCS.NS`, "
+    "`NSE:TCS`, BSE scrip codes like `500325` or `BSE:500325`, and `.BO` tickers.",
+    DEFAULT,
 )
-period = st.selectbox("History", ["2y", "5y"], index=0)
+c_ex, c_period = st.columns(2)
+exchange = c_ex.selectbox(
+    "Exchange for plain names", ["NSE", "BSE"], help="Used for symbols with no NSE:/BSE: prefix."
+)
+period = c_period.selectbox("History", ["2y", "5y"], index=0)
 value = st.number_input("Portfolio value (₹)", 10_000.0, value=1_000_000.0, step=50_000.0)
 c1, c2 = st.columns(2)
 with c1:
@@ -31,38 +38,18 @@ with c2:
     cooldown = st.slider("Cooldown (trading days)", 5, 63, 21)
 
 
-def _parse(raw: str) -> dict[str, float]:
-    out: dict[str, float] = {}
-    for line in raw.splitlines():
-        parts = line.replace(",", " ").split()
-        if len(parts) == 2:
-            out[parts[0].upper()] = float(parts[1])
-        elif parts:
-            raise ValueError(f"Could not read line: {line!r}")
-    return out
-
-
 @st.cache_data(ttl=600, show_spinner=False)
-def _returns(symbols: tuple[str, ...], period: str) -> pd.DataFrame:
-    tickers = [f"{s}.NS" for s in symbols]
-    raw = cached_download(tickers, period=period, auto_adjust=True, progress=False)
-    if raw is None or raw.empty:
-        return pd.DataFrame()
-    close = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw[["Close"]]
-    if not isinstance(raw.columns, pd.MultiIndex):
-        close.columns = tickers[:1]
-    close.columns = [str(c).removesuffix(".NS") for c in close.columns]
-    return close.pct_change().dropna(how="all")
+def _returns(items: tuple[tuple[str, str], ...], period: str):
+    return load_returns(dict(items), period)
 
 
 if st.button("Analyse", type="primary"):
     try:
-        weights = _parse(text)
-        if not weights:
-            raise ValueError("Enter at least one holding.")
-        rets = _returns(tuple(weights), period)
-        if rets.empty:
-            raise ValueError("No price data came back. Try again shortly.")
+        tickers, typed_weights = resolve_holdings(parse_holdings(text), exchange)
+        rets, missing = _returns(tuple(tickers.items()), period)
+        if missing:
+            st.warning(f"No price history for {', '.join(missing)}; left out of the analysis.")
+        weights = {name: typed_weights[name] for name in rets.columns}
         summary = risk_summary(rets, weights)
         port = portfolio_returns(rets, weights)
         contrib = risk_contributions(rets, weights)

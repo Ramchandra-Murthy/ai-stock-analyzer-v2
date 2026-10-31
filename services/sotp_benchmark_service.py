@@ -1,7 +1,10 @@
+import logging
 import math
 import statistics
 
 import yfinance as yf
+
+logger = logging.getLogger(__name__)
 
 # ==========================================================
 # HELPERS
@@ -478,7 +481,8 @@ def _fetch_peer_ev_ebitda(symbol):
 
         return multiple
 
-    except Exception:
+    except Exception as exc:
+        logger.warning("Peer multiple lookup failed for %s: %s", symbol, exc)
         return None
 
 

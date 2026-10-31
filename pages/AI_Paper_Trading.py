@@ -8,6 +8,7 @@ import streamlit as st
 from ai_trading.ml_scanner import scan_universe
 from ai_trading.paper_trading import PaperPortfolio, apply_ml_signals
 from ai_trading.risk import RiskLimits, risk_warnings
+from components.disclaimer import show_disclaimer
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from services.cached_download import cached_download
 
@@ -18,6 +19,7 @@ st.set_page_config(
 )
 
 st.title("🧪 AI Paper Trading")
+show_disclaimer()
 st.caption(
     "Simulation only. ML signals are converted into paper fills and portfolio "
     "positions; no broker orders are submitted."

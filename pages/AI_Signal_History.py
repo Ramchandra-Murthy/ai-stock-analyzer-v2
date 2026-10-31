@@ -6,10 +6,12 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.signal_history import summarize_outcomes
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(page_title="AI Signal History", page_icon="🗂️", layout="wide")
 
 st.title("🗂️ AI Signal History")
+show_disclaimer()
 st.caption("Historical AI signal outcome analytics. No broker orders are submitted.")
 
 history = st.session_state.get("ai_signal_history")

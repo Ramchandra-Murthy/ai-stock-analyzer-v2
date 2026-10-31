@@ -17,6 +17,7 @@ from ai_trading.ml_scanner import scan_universe
 from ai_trading.paper_trading import PaperPortfolio, apply_ml_signals
 from ai_trading.performance import build_performance_report
 from ai_trading.risk import RiskLimits, risk_warnings
+from components.disclaimer import show_disclaimer
 from modules.intraday import _fetch_live_board, _market_session_is_open
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 from services.cached_download import cached_download
@@ -30,6 +31,7 @@ st.set_page_config(
 )
 
 st.title("🎯 AI Trading Command Center")
+show_disclaimer()
 st.caption(
     "One research workflow: Live 20 → ML validation → risk controls → paper execution → performance. "
     "Simulation only; no broker orders are submitted."

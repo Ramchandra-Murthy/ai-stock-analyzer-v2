@@ -8,9 +8,11 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.self_improving import evaluate_retraining_need
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(page_title="AI Self-Improving Model", page_icon="🧠", layout="wide")
 st.title("🧠 AI Self-Improving Model Engine")
+show_disclaimer()
 st.caption(
     "Historical research monitor: evaluates whether accumulated completed outcomes "
     "justify model retraining. It does not retrain or place live orders."

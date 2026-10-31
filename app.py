@@ -110,6 +110,12 @@ pages = {
             icon="📋",
             url_path="stocks-watchlist",
         ),
+        st.Page(
+            "pages/Data_Health.py",
+            title="Data Health",
+            icon="🩺",
+            url_path="data-health",
+        ),
     ],
     "🔴 Live Market": [
         st.Page(
@@ -198,6 +204,12 @@ pages = {
             title="Portfolio Optimizer",
             icon="⚖️",
             url_path="portfolio-optimizer",
+        ),
+        st.Page(
+            "pages/Advanced_Portfolio_Lab.py",
+            title="Advanced Portfolio Lab",
+            icon="🧮",
+            url_path="advanced-portfolio-lab",
         ),
         st.Page(
             "pages/Momentum_Portfolio.py",

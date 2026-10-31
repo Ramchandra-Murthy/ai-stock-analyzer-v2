@@ -46,7 +46,8 @@ deliberate, tested execution layer, and no backtest result is a promise of futur
   paise, starting with anything that produces a target price or position size.
 - Narrow the 114 `except Exception` blocks and replace `print` with `logging`.
 - Widen the mypy gate beyond the 8 curated service files, fixing errors in batches.
-- Add the investment-advice disclaimer to every page under `pages/`, not only the home page.
+- ~~Add the investment-advice disclaimer to every page under `pages/`.~~ Done: `components/disclaimer.py`,
+  enforced by `tests/test_page_disclaimers.py`, which fails if a page has none.
 - Split files over 1,000 lines (`modules/intraday.py`, the SOTP evidence service).
 
 ## What not to add
@@ -61,7 +62,14 @@ deliberate, tested execution layer, and no backtest result is a promise of futur
 Walk-forward optimisation, regime filter, momentum portfolio, risk dashboard, options strategy
 builder, pairs research, alerts and NSE cost presets are implemented and unit-tested.
 
+Since then: BSE-aware research pages and a Data Health page, minimum-CVaR and rebalance planning,
+efficient frontier, Black-Litterman, Cornish-Fisher VaR, Monte Carlo and stress tests, and a
+sector and risk concentration report (all in the Advanced Portfolio Lab).
+
 ## Still open
+
+- Sector classification beyond the 80-stock curated list (`scanner/sectors.py`); a live source
+  such as the exchange's industry file would replace the hand-assigned map.
 
 - Launch the app against live data and fix whatever real providers surface (not done offline).
 - Survivorship-free universes for the momentum page (it uses today's large-cap list).

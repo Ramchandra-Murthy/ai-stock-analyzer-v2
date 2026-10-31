@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from components.disclaimer import show_disclaimer
 from modules.gann_fibonacci_time import (
     detect_confirmed_pivots,
     project_gann_fan,
@@ -19,6 +20,7 @@ from modules.gann_fibonacci_time.confluence import eligible_time_zone_indices, f
 
 st.set_page_config(page_title="Gann–Fibonacci Time & Price Lab", page_icon="🧭", layout="wide")
 st.title("🧭 Gann–Fibonacci Time & Price Research Lab")
+show_disclaimer()
 st.caption(
     "Historical analysis and configurable projections. Historical confluence is evaluated only "
     "at or after the anchor confirmation bar. This page does not submit broker orders or provide "

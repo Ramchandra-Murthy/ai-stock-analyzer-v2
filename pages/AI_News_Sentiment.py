@@ -8,9 +8,11 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.news_sentiment import aggregate_sentiment, summarize_news
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(page_title="AI News Sentiment", page_icon="📰", layout="wide")
 st.title("📰 AI News & Sentiment Intelligence")
+show_disclaimer()
 st.caption("Research monitor: transparent headline sentiment. No live orders are placed.")
 
 text = st.text_area(

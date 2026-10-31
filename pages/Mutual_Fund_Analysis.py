@@ -57,6 +57,10 @@ with tab_one:
     if st.button("Search", key="search"):
         try:
             st.session_state["mf_results"] = _search(query)
+            if st.session_state["mf_results"].empty:
+                st.info(
+                    "No schemes matched. Try fewer words, e.g. 'mirae large' or the fund house."
+                )
         except Exception as exc:
             st.error(f"Search failed: {exc}")
     results = st.session_state.get("mf_results")
@@ -73,6 +77,8 @@ with tab_one:
         corpus = st.number_input("SWP corpus (₹)", 10_000.0, value=2_000_000.0, step=100_000.0)
         withdrawal = st.number_input("Monthly withdrawal (₹)", 500.0, value=15_000.0, step=500.0)
         if st.button("Analyse", type="primary"):
+            st.session_state["mf_analyse"] = code
+        if st.session_state.get("mf_analyse") == code:
             try:
                 meta, nav = _scheme(code)
                 nav = nav[nav.index >= nav.index[-1] - pd.DateOffset(years=years_back)]

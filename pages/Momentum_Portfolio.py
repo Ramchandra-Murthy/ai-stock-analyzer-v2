@@ -8,8 +8,9 @@ import streamlit as st
 from algorithmic_trading.momentum_portfolio import WEIGHTINGS, run_momentum_portfolio
 from algorithmic_trading.regime_filter import trend_gate
 from algorithmic_trading.trading_costs import RATES_VERIFIED, india_cost_model
-from scanner.universe import NSE_CANDIDATES
-from services.cached_download import cached_download
+from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
+from services.price_table import load_close_prices
+from services.symbol_resolver import SUFFIX, company_label
 
 st.set_page_config(page_title="Momentum Portfolio", page_icon="🚀", layout="wide")
 st.title("🚀 Momentum Portfolio")
@@ -25,21 +26,16 @@ st.caption(
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def _load(symbols: tuple[str, ...], period: str) -> pd.DataFrame:
-    tickers = [f"{s}.NS" for s in symbols]
-    raw = cached_download(tickers, period=period, auto_adjust=True, progress=False)
-    if raw is None or raw.empty:
-        return pd.DataFrame()
-    close = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw[["Close"]]
-    if not isinstance(raw.columns, pd.MultiIndex):
-        close.columns = tickers[:1]
-    close.columns = [str(c).removesuffix(".NS") for c in close.columns]
-    return close.dropna(how="all")
+def _load(items: tuple[tuple[str, str], ...], period: str):
+    close, missing = load_close_prices(dict(items), period)
+    return close.dropna(how="all"), missing
 
 
 left, right = st.columns(2)
 with left:
-    count = st.slider("Universe size (first N of the NSE list)", 10, len(NSE_CANDIDATES), 30)
+    exchange = st.selectbox("Universe", ["NSE", "BSE"], help="BSE uses six-digit scrip codes.")
+    universe = NSE_CANDIDATES if exchange == "NSE" else BSE_CANDIDATES
+    count = st.slider(f"Universe size (first N of the {exchange} list)", 10, len(universe), 30)
     period = st.selectbox("History", ["5y", "10y"], index=0)
     top_n = st.slider("Holdings", 1, 15, 5)
     weighting = st.radio("Weighting", WEIGHTINGS)
@@ -53,12 +49,19 @@ with right:
     )
 
 if st.button("Run backtest", type="primary"):
-    symbols = tuple(NSE_CANDIDATES[:count])
+    tickers = [f"{code}{SUFFIX[exchange]}" for code in universe[:count]]
+    items = tuple((company_label(t), t) for t in tickers)
     with st.spinner("Downloading prices..."):
-        prices = _load(symbols, period)
+        prices, missing = _load(items, period)
     if prices.empty:
         st.error("No price data came back. Check your network or try again shortly.")
         st.stop()
+    if missing:
+        st.warning(
+            f"Tested {prices.shape[1]} of {len(items)} symbols; {len(missing)} had no price "
+            f"history from the provider: {', '.join(missing[:12])}"
+            + (" ..." if len(missing) > 12 else "")
+        )
     gate = None
     if market_gate:
         gate = trend_gate((prices.pct_change().mean(axis=1).fillna(0) + 1).cumprod(), 50, 200)

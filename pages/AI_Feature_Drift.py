@@ -8,8 +8,10 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.feature_drift import build_feature_drift_report
+from components.disclaimer import show_disclaimer
 
 st.title("AI Feature Drift")
+show_disclaimer()
 st.caption("Research monitor for changes between baseline and recent feature distributions.")
 
 baseline_text = st.text_area("Baseline Close prices", height=120)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from algorithmic_trading.lab_inputs import parse_holdings, resolve_holdings
 from algorithmic_trading.portfolio_optimizer import (
     METHODS,
     optimise,
@@ -12,7 +13,7 @@ from algorithmic_trading.portfolio_optimizer import (
     walk_forward_weights,
 )
 from algorithmic_trading.risk_sizing import atr_stop, fractional_kelly, risk_based_quantity
-from services.cached_download import cached_download
+from services.price_table import load_returns
 
 st.set_page_config(page_title="Portfolio Optimizer", page_icon="⚖️", layout="wide")
 st.title("⚖️ Portfolio Optimizer")
@@ -23,29 +24,31 @@ st.warning(
 
 
 @st.cache_data(ttl=600, show_spinner=False)
-def _returns(symbols: tuple[str, ...], period: str) -> pd.DataFrame:
-    tickers = [f"{s}.NS" for s in symbols]
-    raw = cached_download(tickers, period=period, auto_adjust=True, progress=False)
-    if raw is None or raw.empty:
-        return pd.DataFrame()
-    close = raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw[["Close"]]
-    if not isinstance(raw.columns, pd.MultiIndex):
-        close.columns = tickers[:1]
-    close.columns = [str(c).removesuffix(".NS") for c in close.columns]
-    return close.pct_change().dropna(how="all")
+def _returns(items: tuple[tuple[str, str], ...], period: str):
+    return load_returns(dict(items), period)
 
 
 tab_opt, tab_size = st.tabs(["Optimise", "Position sizing"])
 with tab_opt:
-    text = st.text_input("NSE symbols (comma separated)", "RELIANCE,TCS,HDFCBANK,ITC,INFY,SBIN")
+    text = st.text_input(
+        "Symbols (comma separated): `TCS`, `NSE:TCS`, BSE scrip codes like `500325`, `.BO` tickers",
+        "RELIANCE,TCS,HDFCBANK,ITC,INFY,SBIN",
+    )
+    exchange = st.selectbox("Exchange for plain names", ["NSE", "BSE"])
     period = st.selectbox("History", ["5y", "10y"], index=0)
     cap = st.slider("Maximum weight per stock", 0.1, 1.0, 0.4, 0.05)
     if st.button("Optimise", type="primary"):
-        symbols = tuple(dict.fromkeys(s.strip().upper() for s in text.split(",") if s.strip()))
-        rets = _returns(symbols, period).dropna()
         try:
-            if rets.empty:
-                raise ValueError("No price data came back. Try again shortly.")
+            names = [p for p in text.replace("\n", ",").split(",") if p.strip()]
+            typed = parse_holdings("\n".join(f"{n} 1" for n in names))
+            tickers, _ = resolve_holdings(typed, exchange)
+            if len(tickers) < 2:
+                raise ValueError("Enter at least two symbols.")
+            rets, missing = _returns(tuple(tickers.items()), period)
+            if missing:
+                st.warning(f"No price history for {', '.join(missing)}; left out.")
+            if rets.shape[1] < 2:
+                raise ValueError("Fewer than two symbols had price history.")
             rows, curves = {}, {}
             for method in METHODS:
                 w = optimise(

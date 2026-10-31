@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from ai_trading.risk import RiskLimits, risk_warnings
+from components.disclaimer import show_disclaimer
 
 st.set_page_config(
     page_title="AI Paper Risk",
@@ -13,6 +14,7 @@ st.set_page_config(
 )
 
 st.title("🛡️ AI Paper Trading Risk")
+show_disclaimer()
 st.caption("Portfolio-level risk limits for the in-memory AI paper-trading session.")
 
 portfolio = st.session_state.get("ai_paper_portfolio")
