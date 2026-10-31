@@ -33,7 +33,7 @@ def _apportion(total: int, weights: np.ndarray) -> np.ndarray:
     base = np.floor(exact).astype(int)
     order = np.argsort(-(exact - base), kind="stable")
     base[order[: total - int(base.sum())]] += 1
-    return base
+    return np.asarray(base, dtype=int)
 
 
 def u_shaped_profile(slices: int) -> np.ndarray:
