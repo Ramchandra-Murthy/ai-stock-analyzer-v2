@@ -230,6 +230,24 @@ pages = {
             url_path="risk-dashboard",
         ),
         st.Page(
+            "pages/Risk_Guards_Lab.py",
+            title="Risk Guards Lab",
+            icon="🚧",
+            url_path="risk-guards-lab",
+        ),
+        st.Page(
+            "pages/Performance_Attribution.py",
+            title="Performance Attribution",
+            icon="🧭",
+            url_path="performance-attribution",
+        ),
+        st.Page(
+            "pages/Execution_Lab.py",
+            title="Execution Lab",
+            icon="⚙️",
+            url_path="execution-lab",
+        ),
+        st.Page(
             "pages/Portfolio_Risk_Allocation.py",
             title="Portfolio Risk & Allocation",
             icon="🛡️",

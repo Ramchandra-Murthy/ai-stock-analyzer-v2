@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sector and risk concentration tab in the Advanced Portfolio Lab (`algorithmic_trading/concentration.py`, `scanner/sectors.py`): sector capital vs risk share, effective number of holdings, Herfindahl index and plain-language flags.
 - Shared research disclaimer (`components/disclaimer.py`) on all 29 pages that had none, with a test that fails when any page lacks one.
 
+- Execution Lab, Performance Attribution and Risk Guards Lab pages, with `algorithmic_trading/execution.py`, `attribution.py` and `risk_guards.py` and unit tests (ideas from *Next-Gen Algorithmic Trading*: execution slicing and impact, factor attribution, protective stops and kill switch).
+- ML Signal Lab diagnostics (`algorithmic_trading/ml_diagnostics.py`): time-series cross-validated grid search, out-of-sample permutation importance and a train/test overfitting verdict.
+
 ### Fixed
 - BSE stocks missing from the watchlist gainers scan: it examined only 8 of 80 curated BSE codes, dropped symbols with no data without saying so, and cached an empty result for five minutes. It now scans 24/48/80 codes concurrently, reports "Scored N of M", never caches an empty scan, and retries a code the provider does not serve under its `NAME.BO` ticker.
 - A symbol with no price history no longer blanks the whole table on the research pages; it is named in a warning and the rest are analysed.
