@@ -59,3 +59,12 @@ def test_every_curated_bse_code_resolves_to_a_labelled_bse_ticker():
         item = resolve_symbol(f"{code}.BO")
         assert item.is_bse_scrip_code
         assert company_label(item.ticker).endswith(f"(BSE {code})")
+
+
+def test_yahoo_ticker_maps_curated_scrip_code_to_name_form():
+    from services.symbol_resolver import yahoo_ticker
+
+    assert yahoo_ticker("500325.BO") == "RELIANCE.BO"
+    assert yahoo_ticker("RELIANCE.BO") == "RELIANCE.BO"
+    assert yahoo_ticker("tcs.ns") == "TCS.NS"
+    assert yahoo_ticker("999999.BO") == "999999.BO"  # unknown code is left alone

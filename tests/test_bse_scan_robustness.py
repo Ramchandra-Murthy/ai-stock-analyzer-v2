@@ -135,3 +135,23 @@ def test_no_alternates_means_no_second_download():
     download, calls = _serving(set())
     assert download_with_fallback(download, ["TCS.NS"], {}) == {}
     assert len(calls) == 1
+
+
+def test_prefer_alternate_asks_name_first_and_keeps_original_keys():
+    import pandas as pd
+
+    from scanner.gainers import download_with_fallback
+
+    asked = []
+
+    def download(batch):
+        asked.append(list(batch))
+        return {
+            t: pd.DataFrame({"Close": [1.0, 2.0]}) for t in batch if t.endswith("RELIANCE.BO")
+        }, []
+
+    frames = download_with_fallback(
+        download, ["500325.BO"], {"500325.BO": "RELIANCE.BO"}, prefer_alternate=True
+    )
+    assert asked == [["RELIANCE.BO"]]  # one round trip
+    assert list(frames) == ["500325.BO"]

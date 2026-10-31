@@ -14,6 +14,7 @@ import yfinance as yf
 
 from scanner.dynamic_universe import merge_bse_universe, merge_nse_universe
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
+from services.symbol_resolver import yahoo_ticker
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ MID_CAP_RANK_MAX = 250
 def _ticker(symbol: str, exchange: str) -> str:
     cleaned = str(symbol).strip().upper()
     suffix = ".NS" if exchange == "NSE" else ".BO"
-    return cleaned if cleaned.endswith((".NS", ".BO")) else f"{cleaned}{suffix}"
+    return yahoo_ticker(cleaned if cleaned.endswith((".NS", ".BO")) else f"{cleaned}{suffix}")
 
 
 def _extract_frame(history: pd.DataFrame, ticker: str) -> pd.DataFrame:

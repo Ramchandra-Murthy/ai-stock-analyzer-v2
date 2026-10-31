@@ -51,6 +51,7 @@ from scanner.price_jump_confluence import match_price_jumps_to_confluence
 from scanner.price_jump_history import append_price_jump_snapshot
 from scanner.price_jump_history_analytics import summarize_price_jump_history
 from scanner.unusual_activity import scan_unusual_activity
+from services.symbol_resolver import yahoo_ticker
 
 IST = ZoneInfo("Asia/Kolkata")
 
@@ -58,7 +59,7 @@ IST = ZoneInfo("Asia/Kolkata")
 def _ticker(symbol: str, exchange: str) -> str:
     cleaned = symbol.strip().upper()
     suffix = ".NS" if exchange == "NSE" else ".BO"
-    return cleaned if cleaned.endswith((".NS", ".BO")) else f"{cleaned}{suffix}"
+    return yahoo_ticker(cleaned if cleaned.endswith((".NS", ".BO")) else f"{cleaned}{suffix}")
 
 
 def _rsi(close: pd.Series, period: int = 14) -> pd.Series:
@@ -222,7 +223,7 @@ SECTOR_BY_SYMBOL = {
 def _live_board_ticker(symbol: str, exchange: str) -> str:
     cleaned = str(symbol).strip().upper()
     suffix = ".NS" if exchange == "NSE" else ".BO"
-    return cleaned if cleaned.endswith((".NS", ".BO")) else f"{cleaned}{suffix}"
+    return yahoo_ticker(cleaned if cleaned.endswith((".NS", ".BO")) else f"{cleaned}{suffix}")
 
 
 def _frame_from_board_download(history: pd.DataFrame, ticker: str) -> pd.DataFrame:
