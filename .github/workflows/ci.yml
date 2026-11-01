@@ -8,6 +8,9 @@ on:
   workflow_dispatch:
 
 # EROS: canonical CI gate for the supported repaired runtime surface.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

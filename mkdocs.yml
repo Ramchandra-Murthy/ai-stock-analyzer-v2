@@ -1,4 +1,4 @@
-﻿site_name: AI Institutional Equity Research Platform
+site_name: AI Institutional Equity Research Platform
 nav:
   - Home: index.md
   - Architecture: architecture/index.md
