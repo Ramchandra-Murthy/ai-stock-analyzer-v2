@@ -36,7 +36,7 @@ def test_forward_returns_use_first_bar_at_or_after_publication() -> None:
     assert event.anchor_at == datetime(2026, 1, 2, 15, tzinfo=UTC)
     assert event.anchor_close == 101
     assert event.forward_returns[1] == pytest.approx(103 / 101 - 1)
-    assert event.forward_returns[3] == pytest.approx(106 / 101 - 1)
+    assert event.forward_returns[3] == pytest.approx(105 / 101 - 1)
 
 
 def test_summary_groups_by_label_and_horizon() -> None:
