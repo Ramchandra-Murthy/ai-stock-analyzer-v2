@@ -52,9 +52,7 @@ class NewsRecord:
     source: str
     published_at: datetime | str | int | float
     symbol: str | None = None
-    ingested_at: datetime | str | int | float = field(
-        default_factory=lambda: datetime.now(UTC)
-    )
+    ingested_at: datetime | str | int | float = field(default_factory=lambda: datetime.now(UTC))
     url: str | None = None
     summary: str | None = None
     event_type: str | None = None
