@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -16,8 +16,8 @@ def test_normalizes_symbol_and_timestamps_to_utc() -> None:
 
     assert record.symbol == "RELIANCE"
     assert record.title == "Reliance reports growth"
-    assert record.published_at == datetime(2026, 10, 31, 4, 30, tzinfo=timezone.utc)
-    assert record.ingested_at == datetime(2026, 10, 31, 5, 0, tzinfo=timezone.utc)
+    assert record.published_at == datetime(2026, 10, 31, 4, 30, tzinfo=UTC)
+    assert record.ingested_at == datetime(2026, 10, 31, 5, 0, tzinfo=UTC)
 
 
 def test_from_mapping_supports_news_service_shape() -> None:
@@ -52,7 +52,7 @@ def test_from_mapping_supports_yahoo_nested_content() -> None:
 
     assert record.title == "Nested headline"
     assert record.source == "Publisher"
-    assert record.published_at.tzinfo == timezone.utc
+    assert record.published_at.tzinfo == UTC
 
 
 
@@ -75,7 +75,7 @@ def test_unix_timestamp_is_supported() -> None:
         source="Publisher",
         published_at=1793440800,
     )
-    assert record.published_at.tzinfo == timezone.utc
+    assert record.published_at.tzinfo == UTC
 
 
 @pytest.mark.parametrize("timestamp", ["", "2026-10-31T10:00:00", "not-a-date"])
