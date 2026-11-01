@@ -2,13 +2,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from ai_trading.news_schema import NewsRecord
 from ai_trading.financial_sentiment_model import (
     MODEL_VERSION,
     evaluate_classifier,
     predict_sentiment,
     train_classifier,
 )
+from ai_trading.news_schema import NewsRecord
 
 
 def _record(title: str, label: str) -> NewsRecord:
