@@ -31,10 +31,7 @@ def chronological_records() -> list[NewsRecord]:
         ("revenue declines sharply", "NEGATIVE"),
         ("company announces meeting date", "NEUTRAL"),
     ]
-    return [
-        _record(title, label, day)
-        for day, (title, label) in enumerate(examples, start=1)
-    ]
+    return [_record(title, label, day) for day, (title, label) in enumerate(examples, start=1)]
 
 
 def test_time_aware_evaluation_uses_later_records_for_test(
