@@ -119,8 +119,15 @@ def evaluate_sentiment_walk_forward(
         )
 
     event_columns = [
-        "symbol", "published_at", "decision_at", "entry_at", "exit_at",
-        "sentiment_score", "signal", "gross_return", "net_return",
+        "symbol",
+        "published_at",
+        "decision_at",
+        "entry_at",
+        "exit_at",
+        "sentiment_score",
+        "signal",
+        "gross_return",
+        "net_return",
     ]
     events = pd.DataFrame(rows, columns=event_columns)
     if events.empty:
