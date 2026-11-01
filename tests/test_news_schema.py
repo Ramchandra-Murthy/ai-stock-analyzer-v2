@@ -55,6 +55,20 @@ def test_from_mapping_supports_yahoo_nested_content() -> None:
     assert record.published_at.tzinfo == timezone.utc
 
 
+
+def test_from_mapping_supports_canonical_url() -> None:
+    record = NewsRecord.from_mapping(
+        {
+            "content": {
+                "title": "Nested headline",
+                "provider": {"displayName": "Publisher"},
+                "pubDate": "2026-10-31T10:00:00Z",
+                "canonicalUrl": {"url": "https://example.com/canonical"},
+            }
+        }
+    )
+    assert record.url == "https://example.com/canonical"
+
 def test_unix_timestamp_is_supported() -> None:
     record = NewsRecord(
         title="Headline",
