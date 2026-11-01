@@ -98,7 +98,9 @@ def evaluate_classifier_time_aware(
         accuracy=float(accuracy_score(test_labels, predictions)),
         macro_f1=float(f1_score(test_labels, predictions, average="macro", zero_division=0)),
         labels=label_order,
-        confusion_matrix=confusion_matrix(test_labels, predictions, labels=list(label_order)).tolist(),
+        confusion_matrix=confusion_matrix(
+            test_labels, predictions, labels=list(label_order)
+        ).tolist(),
         classification_report=classification_report(
             test_labels,
             predictions,
