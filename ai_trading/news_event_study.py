@@ -119,11 +119,7 @@ def analyze_news_event_returns(
             continue
         bars = bars_by_symbol.get(record.symbol.upper(), ())
         anchor_index = next(
-            (
-                index
-                for index, bar in enumerate(bars)
-                if bar.timestamp >= record.published_at
-            ),
+            (index for index, bar in enumerate(bars) if bar.timestamp >= record.published_at),
             None,
         )
         if anchor_index is None:
