@@ -34,7 +34,9 @@ with st.expander("CSV format"):
     )
 
 news_file = st.file_uploader("Upload sentiment news CSV", type=["csv"], key="sentiment_robust_news")
-prices_file = st.file_uploader("Upload historical price bars CSV", type=["csv"], key="sentiment_robust_prices")
+prices_file = st.file_uploader(
+    "Upload historical price bars CSV", type=["csv"], key="sentiment_robust_prices"
+)
 
 col1, col2, col3 = st.columns(3)
 horizons = col1.multiselect("Holding horizons (bars)", [3, 5, 10, 15, 20], default=[3, 5, 10])
@@ -46,7 +48,9 @@ costs = col3.multiselect(
 )
 folds = st.slider("Chronological event folds", min_value=2, max_value=8, value=4)
 
-if st.button("Run robustness report", type="primary", disabled=news_file is None or prices_file is None):
+if st.button(
+    "Run robustness report", type="primary", disabled=news_file is None or prices_file is None
+):
     try:
         news_frame = pd.read_csv(news_file)
         price_frame = pd.read_csv(prices_file)
