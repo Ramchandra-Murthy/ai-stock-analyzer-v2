@@ -32,9 +32,7 @@ def evaluate_sentiment_robustness_grid(
         raise ValueError("parameter grids must be non-empty")
 
     rows: list[dict[str, int | float]] = []
-    for horizon, threshold, cost in product(
-        horizon_values, threshold_values, cost_values
-    ):
+    for horizon, threshold, cost in product(horizon_values, threshold_values, cost_values):
         result = evaluate_sentiment_walk_forward(
             records,
             bars_by_symbol,
@@ -43,15 +41,9 @@ def evaluate_sentiment_robustness_grid(
             sentiment_threshold=threshold,
             transaction_cost_bps=cost,
         )
-        fold_returns = result.folds.get(
-            "total_return", pd.Series(dtype=float)
-        ).astype(float)
-        fold_drawdowns = result.folds.get(
-            "max_drawdown", pd.Series(dtype=float)
-        ).astype(float)
-        fold_win_rates = result.folds.get(
-            "win_rate", pd.Series(dtype=float)
-        ).astype(float)
+        fold_returns = result.folds.get("total_return", pd.Series(dtype=float)).astype(float)
+        fold_drawdowns = result.folds.get("max_drawdown", pd.Series(dtype=float)).astype(float)
+        fold_win_rates = result.folds.get("win_rate", pd.Series(dtype=float)).astype(float)
         rows.append(
             {
                 "horizon": int(horizon),
@@ -59,24 +51,14 @@ def evaluate_sentiment_robustness_grid(
                 "transaction_cost_bps": float(cost),
                 "events": int(len(result.events)),
                 "folds": int(len(result.folds)),
-                "mean_fold_return": float(fold_returns.mean())
-                if len(fold_returns)
-                else 0.0,
-                "worst_fold_return": float(fold_returns.min())
-                if len(fold_returns)
-                else 0.0,
-                "fold_return_std": float(fold_returns.std(ddof=0))
-                if len(fold_returns)
-                else 0.0,
-                "positive_fold_rate": float((fold_returns > 0.0).mean())
-                if len(fold_returns)
-                else 0.0,
-                "mean_fold_win_rate": float(fold_win_rates.mean())
-                if len(fold_win_rates)
-                else 0.0,
-                "worst_fold_drawdown": float(fold_drawdowns.min())
-                if len(fold_drawdowns)
-                else 0.0,
+                "mean_fold_return": float(fold_returns.mean()) if len(fold_returns) else 0.0,
+                "worst_fold_return": float(fold_returns.min()) if len(fold_returns) else 0.0,
+                "fold_return_std": float(fold_returns.std(ddof=0)) if len(fold_returns) else 0.0,
+                "positive_fold_rate": (
+                    float((fold_returns > 0.0).mean()) if len(fold_returns) else 0.0
+                ),
+                "mean_fold_win_rate": float(fold_win_rates.mean()) if len(fold_win_rates) else 0.0,
+                "worst_fold_drawdown": float(fold_drawdowns.min()) if len(fold_drawdowns) else 0.0,
             }
         )
     return pd.DataFrame(rows)
