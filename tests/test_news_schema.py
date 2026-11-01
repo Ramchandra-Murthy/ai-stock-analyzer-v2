@@ -55,7 +55,6 @@ def test_from_mapping_supports_yahoo_nested_content() -> None:
     assert record.published_at.tzinfo == UTC
 
 
-
 def test_from_mapping_supports_canonical_url() -> None:
     record = NewsRecord.from_mapping(
         {
@@ -68,6 +67,7 @@ def test_from_mapping_supports_canonical_url() -> None:
         }
     )
     assert record.url == "https://example.com/canonical"
+
 
 def test_unix_timestamp_is_supported() -> None:
     record = NewsRecord(
