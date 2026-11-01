@@ -73,8 +73,7 @@ def evaluate_classifier_time_aware(
     split_index = max(1, min(split_index, len(validated) - 1))
     # Keep identical publication timestamps together in the later partition.
     while (
-        split_index < len(validated)
-        and validated[split_index][0] == validated[split_index - 1][0]
+        split_index < len(validated) and validated[split_index][0] == validated[split_index - 1][0]
     ):
         split_index += 1
     if split_index >= len(validated):
@@ -99,9 +98,7 @@ def evaluate_classifier_time_aware(
         accuracy=float(accuracy_score(test_labels, predictions)),
         macro_f1=float(f1_score(test_labels, predictions, average="macro", zero_division=0)),
         labels=label_order,
-        confusion_matrix=confusion_matrix(
-            test_labels, predictions, labels=list(label_order)
-        ).tolist(),
+        confusion_matrix=confusion_matrix(test_labels, predictions, labels=list(label_order)).tolist(),
         classification_report=classification_report(
             test_labels,
             predictions,
