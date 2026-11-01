@@ -74,9 +74,7 @@ def compare_sentiment_baselines(
     model.fit([row[1] for row in train], train_labels)
     y_true = [row[2] for row in test]
     model_predictions = model.predict([row[1] for row in test])
-    lexicon_predictions = [
-        score_headline(row[1]).label for row in test
-    ]
+    lexicon_predictions = [score_headline(row[1]).label for row in test]
 
     return SentimentBaselineComparison(
         train_size=len(train),
@@ -86,5 +84,7 @@ def compare_sentiment_baselines(
         model_accuracy=float(accuracy_score(y_true, model_predictions)),
         model_macro_f1=float(f1_score(y_true, model_predictions, average="macro", zero_division=0)),
         lexicon_accuracy=float(accuracy_score(y_true, lexicon_predictions)),
-        lexicon_macro_f1=float(f1_score(y_true, lexicon_predictions, average="macro", zero_division=0)),
+        lexicon_macro_f1=float(
+            f1_score(y_true, lexicon_predictions, average="macro", zero_division=0)
+        ),
     )
