@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from itertools import product
 from collections.abc import Iterable, Mapping, Sequence
+from itertools import product
 
 import pandas as pd
 
