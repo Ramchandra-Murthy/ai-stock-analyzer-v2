@@ -5,14 +5,14 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
 def _parse_timestamp(value: datetime | str | int | float) -> datetime:
     """Parse a timestamp and require timezone information."""
     if isinstance(value, (int, float)):
-        parsed = datetime.fromtimestamp(value, tz=timezone.utc)
+        parsed = datetime.fromtimestamp(value, tz=UTC)
     elif isinstance(value, str):
         text = value.strip()
         if not text:
@@ -30,7 +30,7 @@ def _parse_timestamp(value: datetime | str | int | float) -> datetime:
 
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("timestamps must be timezone-aware")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _optional_text(value: Any) -> str | None:
@@ -53,7 +53,7 @@ class NewsRecord:
     published_at: datetime | str | int | float
     symbol: str | None = None
     ingested_at: datetime | str | int | float = field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
     url: str | None = None
     summary: str | None = None
@@ -127,7 +127,7 @@ class NewsRecord:
             title=item.get("title") or item.get("headline") or "",
             source=provider or "Unknown",
             published_at=published,
-            ingested_at=item.get("ingested_at") or datetime.now(timezone.utc),
+            ingested_at=item.get("ingested_at") or datetime.now(UTC),
             symbol=item.get("symbol"),
             url=item.get("url") or item.get("link") or canonical_url or click_url,
             summary=item.get("summary") or item.get("description"),
