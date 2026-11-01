@@ -12,7 +12,7 @@ def _news(symbol: str, score: float, day: int) -> NewsRecord:
         title="test headline",
         source="Test",
         symbol=symbol,
-        published_at=datetime(2026, 10, day, 9, tzinfo=UTC),
+        published_at=datetime(2026, 10, 1, 9 + day, tzinfo=UTC),
         sentiment_score=score,
     )
 
@@ -45,7 +45,7 @@ def test_skips_neutral_missing_score_and_unknown_symbol(bars):
             title="no score",
             source="Test",
             symbol="ABC",
-            published_at=datetime(2026, 10, 4, 9, tzinfo=UTC),
+            published_at=datetime(2026, 10, 1, 14, tzinfo=UTC),
         ),
     ]
     result = evaluate_sentiment_walk_forward(records, bars, sentiment_threshold=0.1)
