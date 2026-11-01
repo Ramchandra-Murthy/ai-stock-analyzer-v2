@@ -288,6 +288,12 @@ pages = {
         ),
         st.Page("pages/AI_News_Sentiment.py", title="AI News & Sentiment", icon="📰"),
         st.Page(
+            "pages/AI_Sentiment_Robustness.py",
+            title="Sentiment Robustness Report",
+            icon="🧪",
+            url_path="sentiment-robustness-report",
+        ),
+        st.Page(
             "pages/AI_Fundamental_Intelligence.py",
             title="AI Fundamental Intelligence",
             icon="📊",
