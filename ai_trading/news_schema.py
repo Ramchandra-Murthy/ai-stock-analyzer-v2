@@ -116,13 +116,20 @@ class NewsRecord:
             or item.get("pubDate")
             or item.get("providerPublishTime")
         )
+        canonical_url = item.get("canonicalUrl") or item.get("canonical_url")
+        click_url = item.get("clickThroughUrl") or item.get("click_through_url")
+        if isinstance(canonical_url, dict):
+            canonical_url = canonical_url.get("url")
+        if isinstance(click_url, dict):
+            click_url = click_url.get("url")
+
         return cls(
             title=item.get("title") or item.get("headline") or "",
             source=provider or "Unknown",
             published_at=published,
             ingested_at=item.get("ingested_at") or datetime.now(timezone.utc),
             symbol=item.get("symbol"),
-            url=item.get("url") or item.get("link"),
+            url=item.get("url") or item.get("link") or canonical_url or click_url,
             summary=item.get("summary") or item.get("description"),
             event_type=item.get("event_type"),
             sentiment_score=item.get("sentiment_score"),
