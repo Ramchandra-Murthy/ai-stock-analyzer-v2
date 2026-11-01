@@ -39,6 +39,7 @@ All are research tools: historical results, not forecasts; no page places orders
 | Advanced Portfolio Lab | Efficient frontier with weight caps, Black-Litterman views blended with market-implied returns, Cornish-Fisher VaR next to historical and normal VaR, block-bootstrap Monte Carlo fan chart with drawdown odds, beta-scaled stress tests, minimum-CVaR weights and a whole-share rebalance plan with estimated costs, and a sector and risk concentration report. Accepts NSE names, BSE scrip codes and `.BO` tickers |
 | Data Health | Measures how many NSE names, BSE scrip codes and BSE names the data provider actually returns from your network, names the ones that failed, and runs the `make doctor` checks in the app |
 | ML Signal Lab | Logistic-regression / gradient-boosting direction signals with purged walk-forward training (no label leakage), shown against the always-up base rate |
+| Sentiment Lab | Finance-lexicon news sentiment (negation, intensifiers, phrases), time-decayed score with small-sample shrinkage, and a lag-safe rank-IC / bucket-return check against prices (`sentiment/`) |
 | Volatility Forecast | EWMA and GARCH(1,1) volatility forecasts, decay path and an out-of-sample QLIKE scoreboard |
 | Sector Rotation | Relative-strength quadrants of NSE sector indices vs NIFTY 50 |
 | Forex Lab | Pair overview, currency strength and correlation, FX backtests with spread and carry, pip-based position sizing (INR pairs flagged; FEMA/RBI limits apply to Indian residents) |

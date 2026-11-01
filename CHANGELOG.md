@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Sentiment Lab page and `sentiment/` package: rule-based finance text scorer, daily/decayed aggregation, point-in-time features, shrunk research label, and lag-safe information-coefficient evaluation, with unit tests.
 - Advanced Portfolio Lab page: efficient frontier, Black-Litterman, tail risk (Cornish-Fisher VaR), Monte Carlo paths and stress tests, backed by `algorithmic_trading/portfolio_advanced.py`, `risk_advanced.py` and `lab_inputs.py` with unit tests.
 - `run_app.sh` launcher; the dev container now uses Python 3.13, installs from `uv.lock` and starts the Streamlit app on open.
 - BSE support across the research pages: Portfolio Optimizer, Risk Dashboard, Momentum Portfolio (NSE or BSE universe), Pairs Research and the Lab now accept `TCS`, `NSE:TCS`, `.NS`/`.BO` tickers and six-digit BSE scrip codes through one resolver (`services/symbol_resolver.py`) and one loader (`services/price_table.py`).

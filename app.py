@@ -194,6 +194,12 @@ pages = {
             url_path="ml-signal-lab",
         ),
         st.Page(
+            "pages/Sentiment_Lab.py",
+            title="Sentiment Lab",
+            icon="🧭",
+            url_path="sentiment-lab",
+        ),
+        st.Page(
             "pages/Strategy_Robustness.py",
             title="Strategy Robustness",
             icon="🎲",
