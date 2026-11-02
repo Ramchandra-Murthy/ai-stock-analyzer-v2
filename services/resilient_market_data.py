@@ -11,7 +11,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from time import sleep
-from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -22,59 +21,6 @@ from services.ohlcv_validation import build_data_status, validate_ohlcv_frame
 DEFAULT_RETRIES = 2
 DEFAULT_TIMEOUT = 12.0
 RETRY_BACKOFF_SECONDS = 1.0
-
-REQUIRED_OHLCV_COLUMNS = ("Open", "High", "Low", "Close", "Volume")
-
-
-def validate_ohlcv_frame(frame: pd.DataFrame | None) -> tuple[pd.DataFrame, list[str]]:
-    """Validate and normalize an OHLCV frame without silently repairing bad values.
-
-    Returns a copy sorted by timestamp and a list of validation errors. Duplicate
-    timestamps, nonnumeric/nonfinite values, nonpositive prices, negative volume,
-    and impossible OHLC relationships are rejected.
-    """
-    if frame is None or frame.empty:
-        return pd.DataFrame(), ["empty frame"]
-    missing = [column for column in REQUIRED_OHLCV_COLUMNS if column not in frame.columns]
-    if missing:
-        return pd.DataFrame(), [f"missing columns: {', '.join(missing)}"]
-
-    data = frame.loc[:, REQUIRED_OHLCV_COLUMNS].copy()
-    data = data.apply(pd.to_numeric, errors="coerce")
-    errors: list[str] = []
-    if data.isna().any().any():
-        errors.append("missing or nonnumeric OHLCV values")
-    if not data.map(lambda value: pd.notna(value) and pd.api.types.is_number(value) and float(value) not in (float("inf"), float("-inf"))).all().all():
-        errors.append("non-finite OHLCV values")
-    prices = data[["Open", "High", "Low", "Close"]]
-    if (prices <= 0).any().any():
-        errors.append("nonpositive price")
-    if (data["Volume"] < 0).any():
-        errors.append("negative volume")
-    if ((data["High"] < data[["Open", "Close", "Low"]].max(axis=1)) |
-        (data["Low"] > data[["Open", "Close", "High"]].min(axis=1))).any():
-        errors.append("invalid OHLC relationship")
-    if data.index.has_duplicates:
-        errors.append("duplicate timestamps")
-    if errors:
-        return pd.DataFrame(), list(dict.fromkeys(errors))
-    return data.sort_index(), []
-
-
-def _frame_status(frame: pd.DataFrame, errors: list[str], retrieved_at: str) -> dict[str, Any]:
-    """Build per-symbol provenance and freshness metadata."""
-    last_bar = frame.index[-1] if not frame.empty else None
-    return {
-        "source": "Yahoo Finance",
-        "retrieved_at": retrieved_at,
-        "last_bar": last_bar.isoformat() if hasattr(last_bar, "isoformat") else None,
-        "status": "VALID" if not errors and not frame.empty else "INVALID",
-        "row_count": len(frame),
-        "validation_errors": errors,
-    }
-DEFAULT_TIMEOUT = 12.0
-RETRY_BACKOFF_SECONDS = 1.0
-
 
 def _configure_yfinance() -> None:
     """Enable yfinance's built-in transient-network retry support when available."""
