@@ -8,6 +8,9 @@ on:
   workflow_dispatch:
 
 # EROS: canonical CI gate for the supported repaired runtime surface.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -70,13 +73,11 @@ jobs:
         echo "Streamlit health endpoint did not become healthy"
         exit 1
 
-  # Informational only: runs the whole tests/ directory without gating merges.
-  # The gating job above runs a curated subset; use this to spot regressions elsewhere
-  # and promote files into the gating list once they are reliably green.
+  # Runs the whole tests/ directory. It is green and now gates merges, in addition to
+  # the curated subset in the job above.
   full-test-suite:
-    name: Full test suite (non-blocking)
+    name: Full test suite
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
