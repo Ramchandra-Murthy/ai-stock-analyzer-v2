@@ -91,3 +91,74 @@ def test_market_scan_reports_per_exchange_coverage_when_no_movers(monkeypatch) -
             "final_rows": 0,
         }
     }
+
+
+def test_batch_change_screen_excludes_ticker_with_stale_last_bar(monkeypatch) -> None:
+    """A halted name (old last bar, big old move) must not rank beside fresh tickers."""
+    import pandas as pd
+
+    from scanner import market_scanner
+
+    dates = pd.to_datetime(["2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30"])
+    nan = float("nan")
+    columns = pd.MultiIndex.from_product([["AAA.NS", "BBB.NS"], ["Close", "Volume"]])
+    history = pd.DataFrame(
+        [
+            [100.0, 1_000, 100.0, 1_000],
+            [100.0, 1_000, 150.0, 1_000],  # BBB: +50% on 10-28, then no more bars
+            [100.0, 1_000, nan, nan],
+            [110.0, 1_000, nan, nan],  # AAA: +10% on the latest session
+        ],
+        index=dates,
+        columns=columns,
+    )
+    monkeypatch.setattr(market_scanner, "_download_chunk", lambda chunk: history)
+
+    ranked = market_scanner._batch_change_screen({"NSE": ["AAA", "BBB"]})
+
+    assert [row[0] for row in ranked] == ["AAA.NS"]
+    assert round(ranked[0][2], 6) == 10.0
+
+
+def test_batch_change_screen_keeps_all_tickers_on_the_same_session(monkeypatch) -> None:
+    import pandas as pd
+
+    from scanner import market_scanner
+
+    dates = pd.to_datetime(["2026-10-29", "2026-10-30"])
+    columns = pd.MultiIndex.from_product([["AAA.NS", "BBB.NS"], ["Close", "Volume"]])
+    history = pd.DataFrame(
+        [[100.0, 1_000, 100.0, 1_000], [110.0, 1_000, 80.0, 1_000]],
+        index=dates,
+        columns=columns,
+    )
+    monkeypatch.setattr(market_scanner, "_download_chunk", lambda chunk: history)
+
+    ranked = market_scanner._batch_change_screen({"NSE": ["AAA", "BBB"]})
+
+    assert sorted(row[0] for row in ranked) == ["AAA.NS", "BBB.NS"]
+    assert ranked[0][0] == "BBB.NS"  # |-20%| outranks |+10%|
+
+
+def test_analyze_history_stamps_the_last_bar_date() -> None:
+    import numpy as np
+    import pandas as pd
+
+    from scanner import market_scanner
+
+    index = pd.bdate_range(end="2026-10-30", periods=120)
+    close = pd.Series(np.linspace(100, 130, len(index)), index=index)
+    history = pd.DataFrame(
+        {
+            "Open": close,
+            "High": close * 1.01,
+            "Low": close * 0.99,
+            "Close": close,
+            "Volume": 1_000_000,
+        }
+    )
+
+    row = market_scanner._analyze_history("AAA.NS", history, 1.0e8)
+
+    assert row is not None
+    assert row["Data As Of"] == "2026-10-30"
