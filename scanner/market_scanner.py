@@ -1,5 +1,7 @@
 import logging
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import yfinance as yf
@@ -18,9 +20,11 @@ from scanner.dynamic_universe import (
     merge_bse_universe,
     merge_nse_universe,
 )
+from services.data_quality import last_bar_date, split_stale
 from services.sector_mapping import sector_for_symbol
 
 logger = logging.getLogger(__name__)
+IST = ZoneInfo("Asia/Kolkata")
 
 TOP_CANDIDATES_TO_ANALYZE = 20
 DISPLAY_COUNT = 20
@@ -167,6 +171,7 @@ def _batch_change_screen(
 ) -> list[tuple[str, str, float, float]]:
     """Find price movers across the current NSE and BSE universes without a liquidity exclusion."""
     ranked: list[tuple[str, str, float, float]] = []
+    series_by_ticker: dict[str, tuple[str, pd.Series, pd.Series]] = {}
 
     for exchange, symbols in candidates.items():
         tickers = [_ticker(symbol, exchange) for symbol in symbols]
@@ -180,20 +185,43 @@ def _batch_change_screen(
                 try:
                     close = _extract_series(history, ticker, "Close")
                     volume = _extract_series(history, ticker, "Volume")
-                    if len(close) < 2 or volume.empty:
-                        continue
-
-                    latest = float(close.iloc[-1])
-                    previous = float(close.iloc[-2])
-                    average_volume = float(volume.tail(5).mean())
-                    if previous == 0:
-                        continue
-
-                    change_pct = ((latest - previous) / previous) * 100
-                    average_turnover = latest * average_volume
-                    ranked.append((ticker, exchange, change_pct, average_turnover))
                 except (KeyError, TypeError, ValueError, IndexError):
                     continue
+                if len(close) < 2 or volume.empty:
+                    continue
+                series_by_ticker[ticker] = (exchange, close, volume)
+
+    # A halted or suspended name keeps an old last bar. Rank only tickers on the most
+    # recent session seen across the whole universe so stale moves are not shown as current.
+    reference, stale = split_stale(
+        {ticker: last_bar_date(close) for ticker, (_ex, close, _vol) in series_by_ticker.items()},
+        today=datetime.now(IST).date(),
+    )
+    if stale:
+        logger.warning(
+            "Excluded %d of %d tickers whose last bar is not the latest session (%s); first: %s",
+            len(stale),
+            len(series_by_ticker),
+            reference,
+            ", ".join(stale[:5]),
+        )
+    stale_set = set(stale)
+
+    for ticker, (exchange, close, volume) in series_by_ticker.items():
+        if ticker in stale_set:
+            continue
+        try:
+            latest = float(close.iloc[-1])
+            previous = float(close.iloc[-2])
+            average_volume = float(volume.tail(5).mean())
+            if previous == 0:
+                continue
+
+            change_pct = ((latest - previous) / previous) * 100
+            average_turnover = latest * average_volume
+            ranked.append((ticker, exchange, change_pct, average_turnover))
+        except (TypeError, ValueError, IndexError):
+            continue
 
     ranked.sort(key=lambda row: abs(row[2]), reverse=True)
     return ranked
@@ -210,6 +238,9 @@ def _analyze_history(
         return None
 
     try:
+        # Capture the last bar's date before the index is dropped so every row says which
+        # session its price comes from (None when the frame has no date index).
+        as_of = last_bar_date(df)
         df = df.reset_index(drop=True)
         df = calculate_sma(df, 20)
         df = calculate_sma(df, 50)
@@ -236,6 +267,7 @@ def _analyze_history(
             "Exchange": exchange,
             "Sector": sector_for_symbol(symbol),
             "Price": round(float(last["Close"]), 2),
+            "Data As Of": as_of.isoformat() if as_of is not None else None,
             "Avg Turnover (₹)": (
                 round(average_turnover, 0) if average_turnover is not None else None
             ),
