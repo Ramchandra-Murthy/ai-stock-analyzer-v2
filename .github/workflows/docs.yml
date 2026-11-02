@@ -19,4 +19,4 @@ jobs:
     - name: Install locked documentation tooling
       run: uv sync --locked --only-dev --no-build
     - name: Build documentation
-      run: uv run --locked --no-build mkdocs build
+      run: uv run --locked --no-sync --no-build mkdocs build

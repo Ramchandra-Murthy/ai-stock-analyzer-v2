@@ -19,4 +19,4 @@ jobs:
     - name: Install locked build tooling
       run: uv sync --locked --only-dev --no-build
     - name: Build distribution
-      run: uv run --locked --no-build python -m build
+      run: uv run --locked --no-sync --no-build python -m build
