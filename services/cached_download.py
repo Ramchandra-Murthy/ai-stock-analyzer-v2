@@ -46,10 +46,21 @@ def _default_downloader(*args: Any, **kwargs: Any) -> pd.DataFrame:
     return yf.download(*args, **kwargs)
 
 
-def _make_key(tickers: str | Iterable[str], period: str, kwargs: dict[str, Any]) -> _Key:
+def _make_key(
+    tickers: str | Iterable[str],
+    period: str,
+    kwargs: dict[str, Any],
+    downloader: Callable[..., pd.DataFrame],
+) -> _Key:
     # Ticker order is part of the key: yfinance orders columns by it, and callers rely on that.
     symbols = tickers if isinstance(tickers, str) else tuple(tickers)
-    return (symbols, period, tuple(sorted((k, repr(v)) for k, v in kwargs.items())))
+    # Different provider/downloader implementations must not share cached responses.
+    return (
+        symbols,
+        period,
+        tuple(sorted((k, repr(v)) for k, v in kwargs.items())),
+        id(downloader),
+    )
 
 
 def _evict(now: float) -> None:
@@ -75,8 +86,11 @@ def cached_download(
     if isinstance(tickers, str):
         request: Any = tickers
     else:
+        # Materialize iterables once: generators would otherwise be exhausted before keying.
         request = list(tickers)
-    key = _make_key(tickers, period, kwargs)
+
+    active_downloader = downloader or _default_downloader
+    key = _make_key(request, period, kwargs, active_downloader)
 
     now = clock()
     with _lock:
@@ -84,7 +98,7 @@ def cached_download(
     if entry is not None and entry[0] > now:
         return entry[1].copy()
 
-    frame = (downloader or _default_downloader)(request, period=period, **kwargs)
+    frame = active_downloader(request, period=period, **kwargs)
 
     lifetime = EMPTY_TTL_SECONDS if frame is None or frame.empty else ttl
     stored = pd.DataFrame() if frame is None else frame
