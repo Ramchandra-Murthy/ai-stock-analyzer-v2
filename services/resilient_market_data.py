@@ -9,12 +9,15 @@ exchange-tick execution feed.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import datetime, timezone
 from time import sleep
 from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
 import yfinance as yf
+
+from services.ohlcv_validation import build_data_status, validate_ohlcv_frame
 
 DEFAULT_RETRIES = 2
 DEFAULT_TIMEOUT = 12.0
@@ -262,10 +265,31 @@ def download_market_frames(
         recover_missing=recover_missing,
         diagnostics=diagnostics,
     )
+    retrieved_at = datetime.now(timezone.utc)
+    data_status: dict[str, dict[str, Any]] = {}
+    invalid: list[str] = []
+    for ticker, frame in list(frames.items()):
+        validated, errors = validate_ohlcv_frame(frame)
+        data_status[ticker] = build_data_status(
+            validated if not errors else frame,
+            source="Yahoo Finance",
+            retrieved_at=retrieved_at,
+            errors=errors,
+        )
+        if errors:
+            invalid.append(ticker)
+            frames.pop(ticker, None)
+        else:
+            frames[ticker] = validated
+    missing = sorted(set(missing).union(invalid))
     return frames, {
+        "source": "Yahoo Finance",
+        "retrieved_at": retrieved_at.isoformat(),
         "requested": len(symbols),
         "usable": len(frames),
         "missing": missing,
+        "invalid": invalid,
+        "data_status": data_status,
         "coverage_pct": round(len(frames) / len(symbols) * 100, 1) if symbols else 100.0,
         "complete": not missing,
         "failure_diagnostics": list(dict.fromkeys(diagnostics)),
