@@ -4,6 +4,7 @@ Research/paper-trading only. This module does not fetch data or place orders.
 Input candles must be timestamped OHLCV bars for one symbol, sorted or sortable
 by timestamp. Historical sessions are used only to estimate time-of-day volume.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -116,9 +117,7 @@ def build_intraday_radar_features(
         if previous_close is not None and previous_close > 0
         else None
     )
-    vwap_distance_pct = (
-        ((close / vwap) - 1.0) * 100 if vwap is not None and vwap > 0 else None
-    )
+    vwap_distance_pct = ((close / vwap) - 1.0) * 100 if vwap is not None and vwap > 0 else None
     turnover = float((session["Close"] * session["Volume"]).sum())
 
     opening_end = session.index[0] + pd.Timedelta(minutes=cfg.opening_range_minutes)
@@ -126,9 +125,7 @@ def build_intraday_radar_features(
     opening_high = float(opening["High"].max()) if not opening.empty else None
     opening_low = float(opening["Low"].min()) if not opening.empty else None
     orb_breakout = bool(
-        opening_high is not None
-        and len(session) > len(opening)
-        and close > opening_high
+        opening_high is not None and len(session) > len(opening) and close > opening_high
     )
 
     rvol = _time_of_day_rvol(frame)
