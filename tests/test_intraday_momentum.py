@@ -1,4 +1,5 @@
 """Tests for the intraday momentum radar feature engine."""
+
 import pandas as pd
 import pytest
 
@@ -84,7 +85,5 @@ def test_rvol_uses_prior_session_volume_baseline():
         closes=[100, 101, 101, 102],
         volumes=[1000, 1000, 1500, 1500],
     )
-    result = build_intraday_radar_features(
-        bars, config=RadarConfig(min_turnover=1)
-    )
+    result = build_intraday_radar_features(bars, config=RadarConfig(min_turnover=1))
     assert result["rvol"] == pytest.approx(1.5)
