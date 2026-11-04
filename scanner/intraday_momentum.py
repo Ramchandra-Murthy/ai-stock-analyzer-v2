@@ -103,7 +103,6 @@ def build_intraday_radar_features(
     open_price = float(first["Open"])
     high = float(session["High"].max())
     low = float(session["Low"].min())
-    volume = float(session["Volume"].sum())
     typical_price = (session["High"] + session["Low"] + session["Close"]) / 3.0
     vwap_denominator = float(session["Volume"].sum())
     vwap = (
