@@ -158,6 +158,8 @@ def evaluate_momentum_walk_forward(
     )
     ci_lower = ci_upper = None
     if eligible_spread_count >= 2:
+        # Bootstrap resampling is statistical, not security-sensitive; a seeded
+        # PRNG keeps research diagnostics reproducible.
         rng = random.Random(random_seed)
         sample_size = eligible_spread_count
         bootstrap_means = [
