@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import yfinance as yf
 
+from ai_trading.momentum_scoring import score_momentum
 from engine.breakout_engine import detect_breakout
 from engine.signal_engine import generate_signal
 from indicators.atr import calculate_atr
@@ -227,6 +228,53 @@ def _batch_change_screen(
     return ranked
 
 
+def _momentum_components(df: pd.DataFrame) -> dict[str, float | None]:
+    """Convert recent OHLCV context into bounded, explainable momentum components."""
+    if len(df) < 21:
+        return {
+            "trend": None,
+            "relative_strength": None,
+            "volume_expansion": None,
+            "breakout_quality": None,
+        }
+
+    last = df.iloc[-1]
+    close = float(last["Close"])
+    sma20 = float(last["SMA_20"])
+    sma50 = float(last["SMA_50"])
+    prior_close = float(df["Close"].iloc[-21])
+    average_volume = float(df["Volume"].tail(20).mean())
+    latest_volume = float(last["Volume"])
+    high_20 = float(df["High"].tail(20).max())
+
+    trend_score = (
+        100.0
+        if close >= sma20 and close >= sma50
+        else 50.0
+        if close >= sma20 or close >= sma50
+        else 0.0
+    )
+    return_pct = ((close / prior_close) - 1.0) * 100 if prior_close > 0 else 0.0
+    relative_strength_score = max(0.0, min(100.0, (return_pct + 10.0) * 5.0))
+    volume_ratio = latest_volume / average_volume if average_volume > 0 else None
+    volume_score = (
+        max(0.0, min(100.0, (volume_ratio - 0.5) * (100.0 / 1.5)))
+        if volume_ratio is not None
+        else None
+    )
+    breakout_score = (
+        max(0.0, min(100.0, (close / high_20) * 100.0))
+        if high_20 > 0
+        else None
+    )
+    return {
+        "trend": trend_score,
+        "relative_strength": relative_strength_score,
+        "volume_expansion": volume_score,
+        "breakout_quality": breakout_score,
+    }
+
+
 def _analyze_history(
     ticker: str,
     history: pd.DataFrame,
@@ -260,6 +308,7 @@ def _analyze_history(
             return None
 
         last = df.iloc[-1]
+        momentum = score_momentum(_momentum_components(df))
         exchange = "BSE" if ticker.endswith(".BO") else "NSE"
         symbol = ticker.removesuffix(".NS").removesuffix(".BO")
         return {
@@ -276,6 +325,8 @@ def _analyze_history(
             "MACD": round(float(last["MACD"]), 2),
             "ATR": round(float(last["ATR"]), 2),
             "AI Score": signal["Score"],
+            "Momentum Score": momentum.score,
+            "Momentum Explanation": momentum.explanation,
             "Confidence": signal["Confidence"],
             "Risk": signal.get("Risk", "Medium"),
             "Recommendation": signal["Recommendation"],
