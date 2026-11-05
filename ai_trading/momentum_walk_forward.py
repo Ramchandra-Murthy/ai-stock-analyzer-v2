@@ -163,6 +163,7 @@ def evaluate_momentum_walk_forward(
         rng = random.Random(random_seed)
         sample_size = eligible_spread_count
         bootstrap_means = [
+            # NOSONAR — statistical bootstrap resampling; not security-sensitive.
             sum(rng.choices(eligible_spreads, k=sample_size)) / sample_size
             for _ in range(n_bootstrap)
         ]
