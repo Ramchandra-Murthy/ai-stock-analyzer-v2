@@ -1,7 +1,7 @@
 """Research-only validation of momentum scores against forward returns.
 
 This module does not create trading signals. It summarizes historical observations
-to help assess whether score rankings have predictive value.
+ to help assess whether score rankings have predictive value.
 """
 
 from __future__ import annotations
@@ -117,7 +117,9 @@ def evaluate_momentum_scores(
             score = float(row[score_key])
             forward_return = float(row[return_key])
         except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError(f"each observation must contain numeric {score_key} and {return_key}") from exc
+            raise ValueError(
+                f"each observation must contain numeric {score_key} and {return_key}"
+            ) from exc
         if not math.isfinite(score) or not 0 <= score <= 100:
             raise ValueError(f"{score_key} must be finite and within 0–100")
         if not math.isfinite(forward_return):
@@ -155,7 +157,9 @@ def evaluate_momentum_scores(
         observation_count=len(scores),
         mean_forward_return_pct=_mean(returns),
         median_forward_return_pct=_median(returns),
-        win_rate_pct=100.0 * sum(value > 0 for value in returns) / len(returns) if returns else None,
+        win_rate_pct=(
+            100.0 * sum(value > 0 for value in returns) / len(returns) if returns else None
+        ),
         score_return_correlation=_correlation(scores, returns),
         top_bucket_mean_return_pct=top_mean,
         bottom_bucket_mean_return_pct=bottom_mean,
