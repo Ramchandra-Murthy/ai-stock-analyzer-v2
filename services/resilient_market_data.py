@@ -108,11 +108,13 @@ def _download_single(
     interval: str,
     auto_adjust: bool,
     timeout: float,
+    retries: int = DEFAULT_RETRIES,
     diagnostics: list[str] | None = None,
 ) -> pd.DataFrame:
     """Recover one missing ticker through the direct Ticker.history endpoint."""
     _configure_yfinance()
-    for attempt in range(DEFAULT_RETRIES + 1):
+    retry_count = max(0, int(retries))
+    for attempt in range(retry_count + 1):
         try:
             result = yf.Ticker(ticker).history(
                 period=period,
@@ -128,9 +130,48 @@ def _download_single(
         except Exception as exc:
             if diagnostics is not None:
                 diagnostics.append(f"single-symbol request raised {type(exc).__name__}")
-        if attempt < DEFAULT_RETRIES:
+        if attempt < retry_count:
             sleep(RETRY_BACKOFF_SECONDS * (2**attempt))
     return pd.DataFrame()
+
+
+def download_symbols_individually(
+    tickers: Iterable[str],
+    *,
+    period: str,
+    interval: str,
+    auto_adjust: bool = False,
+    timeout: float = DEFAULT_TIMEOUT,
+    retries: int = DEFAULT_RETRIES,
+    max_symbols: int | None = None,
+    diagnostics: list[str] | None = None,
+) -> tuple[dict[str, pd.DataFrame], list[str]]:
+    """Recover tickers one request at a time, with a hard cap on requests.
+
+    Unlike ``download_symbol_frames(recover_missing=True)`` this does not issue a
+    batch request first, so callers that already tried a batch do not repeat it.
+    At most ``max_symbols`` tickers are attempted and each is tried
+    ``retries + 1`` times; the remainder is reported as unresolved, never
+    fabricated.
+    """
+    symbols = list(dict.fromkeys(str(t).strip().upper() for t in tickers if str(t).strip()))
+    attempted = symbols if max_symbols is None else symbols[: max(0, int(max_symbols))]
+
+    frames: dict[str, pd.DataFrame] = {}
+    for ticker in attempted:
+        frame = _download_single(
+            ticker,
+            period=period,
+            interval=interval,
+            auto_adjust=auto_adjust,
+            timeout=timeout,
+            retries=retries,
+            diagnostics=diagnostics,
+        )
+        if not frame.empty:
+            frames[ticker] = frame
+
+    return frames, [ticker for ticker in symbols if ticker not in frames]
 
 
 def download_symbol_frames(
