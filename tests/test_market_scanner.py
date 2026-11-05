@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from scanner.market_scanner import _extract_series
 
@@ -162,3 +163,48 @@ def test_analyze_history_stamps_the_last_bar_date() -> None:
 
     assert row is not None
     assert row["Data As Of"] == "2026-10-30"
+
+
+def test_momentum_components_are_bounded_and_use_recent_ohlcv() -> None:
+    from scanner.market_scanner import _momentum_components
+
+    close = pd.Series(range(100, 151), dtype="float64")
+    frame = pd.DataFrame(
+        {
+            "Close": close,
+            "High": close * 1.01,
+            "Low": close * 0.99,
+            "Volume": [1_000_000.0] * 50 + [2_000_000.0],
+            "SMA_20": close.rolling(20).mean(),
+            "SMA_50": close.rolling(50).mean(),
+        }
+    )
+
+    components = _momentum_components(frame)
+
+    assert set(components) == {
+        "trend",
+        "relative_strength",
+        "volume_expansion",
+        "breakout_quality",
+    }
+    assert all(value is None or 0 <= value <= 100 for value in components.values())
+    assert components["trend"] == 100
+    assert components["volume_expansion"] == 100
+    assert components["breakout_quality"] == pytest.approx(99.0099009901)
+
+
+def test_momentum_components_are_unavailable_for_short_history() -> None:
+    from scanner.market_scanner import _momentum_components
+
+    frame = pd.DataFrame(
+        {
+            "Close": [100.0] * 10,
+            "High": [101.0] * 10,
+            "Volume": [1_000.0] * 10,
+            "SMA_20": [100.0] * 10,
+            "SMA_50": [100.0] * 10,
+        }
+    )
+
+    assert all(value is None for value in _momentum_components(frame).values())
