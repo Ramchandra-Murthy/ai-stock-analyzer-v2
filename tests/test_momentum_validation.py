@@ -51,18 +51,14 @@ def test_invalid_observations_are_rejected(row):
 
 
 def test_score_of_100_is_included_in_final_bucket():
-    report = evaluate_momentum_scores(
-        [{"momentum_score": 100, "forward_return_pct": 3.5}]
-    )
+    report = evaluate_momentum_scores([{"momentum_score": 100, "forward_return_pct": 3.5}])
 
     assert report.buckets[-1].count == 1
     assert report.buckets[-1].mean_forward_return_pct == pytest.approx(3.5)
 
 
 def test_json_friendly_report_contains_bucket_summaries():
-    report = evaluate_momentum_scores(
-        [{"momentum_score": 80, "forward_return_pct": 1.25}]
-    )
+    report = evaluate_momentum_scores([{"momentum_score": 80, "forward_return_pct": 1.25}])
 
     payload = report.to_dict()
     assert payload["observation_count"] == 1
