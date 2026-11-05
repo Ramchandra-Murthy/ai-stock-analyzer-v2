@@ -7,6 +7,7 @@ not fetch data, create trading signals, or change scanner rankings.
 from __future__ import annotations
 
 import math
+import random
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -39,6 +40,8 @@ class MomentumWalkForwardReport:
     positive_spread_fold_rate_pct: float | None
     mean_spread_pct: float | None
     spread_std_dev_pct: float | None
+    spread_ci_lower_pct: float | None
+    spread_ci_upper_pct: float | None
     low_sample_fold_count: int
     insufficient_evidence: bool
     folds: tuple[MomentumWalkForwardFold, ...]
@@ -56,6 +59,9 @@ def evaluate_momentum_walk_forward(
     return_key: str = "forward_return_pct",
     n_splits: int = 5,
     min_observations_per_fold: int = 20,
+    n_bootstrap: int = 2000,
+    confidence_level: float = 0.95,
+    random_seed: int = 42,
 ) -> MomentumWalkForwardReport:
     """Evaluate score/return relationships across chronological equal-sized folds.
 
@@ -73,6 +79,17 @@ def evaluate_momentum_walk_forward(
 
     if isinstance(n_splits, bool) or not isinstance(n_splits, int) or n_splits < 2:
         raise ValueError("n_splits must be an integer of at least 2")
+    if isinstance(n_bootstrap, bool) or not isinstance(n_bootstrap, int) or n_bootstrap < 100:
+        raise ValueError("n_bootstrap must be an integer of at least 100")
+    if (
+        isinstance(confidence_level, bool)
+        or not isinstance(confidence_level, (int, float))
+        or not math.isfinite(confidence_level)
+        or not 0 < confidence_level < 1
+    ):
+        raise ValueError("confidence_level must be between 0 and 1")
+    if isinstance(random_seed, bool) or not isinstance(random_seed, int):
+        raise ValueError("random_seed must be an integer")
 
     rows = list(observations)
     normalized: list[tuple[str, Mapping[str, Any]]] = []
@@ -139,6 +156,30 @@ def evaluate_momentum_walk_forward(
         if eligible_spread_count and mean_spread is not None
         else None
     )
+    ci_lower = ci_upper = None
+    if eligible_spread_count >= 2:
+        rng = random.Random(random_seed)
+        sample_size = eligible_spread_count
+        bootstrap_means = [
+            sum(rng.choices(eligible_spreads, k=sample_size)) / sample_size
+            for _ in range(n_bootstrap)
+        ]
+        ordered = sorted(bootstrap_means)
+
+        def percentile(p: float) -> float:
+            position = (len(ordered) - 1) * p
+            lower_index = math.floor(position)
+            upper_index = math.ceil(position)
+            if lower_index == upper_index:
+                return ordered[lower_index]
+            fraction = position - lower_index
+            return ordered[lower_index] + fraction * (
+                ordered[upper_index] - ordered[lower_index]
+            )
+
+        tail = (1.0 - float(confidence_level)) / 2.0
+        ci_lower = percentile(tail)
+        ci_upper = percentile(1.0 - tail)
     low_sample_fold_count = sum(fold.low_sample_warning for fold in folds)
     return MomentumWalkForwardReport(
         observation_count=len(normalized),
@@ -149,6 +190,8 @@ def evaluate_momentum_walk_forward(
         ),
         mean_spread_pct=mean_spread,
         spread_std_dev_pct=spread_std_dev,
+        spread_ci_lower_pct=ci_lower,
+        spread_ci_upper_pct=ci_upper,
         low_sample_fold_count=low_sample_fold_count,
         insufficient_evidence=low_sample_fold_count > 0 or eligible_spread_count < 2,
         folds=tuple(folds),
