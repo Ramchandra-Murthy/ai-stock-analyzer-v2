@@ -7,6 +7,7 @@ not fetch data, create trading signals, or change scanner rankings.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+import math
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -25,6 +26,7 @@ class MomentumWalkForwardFold:
     win_rate_pct: float | None
     score_return_correlation: float | None
     top_minus_bottom_return_pct: float | None
+    low_sample_warning: bool
 
 
 @dataclass(frozen=True)
@@ -35,6 +37,10 @@ class MomentumWalkForwardReport:
     fold_count: int
     positive_spread_fold_count: int
     positive_spread_fold_rate_pct: float | None
+    mean_spread_pct: float | None
+    spread_std_dev_pct: float | None
+    low_sample_fold_count: int
+    insufficient_evidence: bool
     folds: tuple[MomentumWalkForwardFold, ...]
 
     def to_dict(self) -> dict[str, Any]:
@@ -49,6 +55,7 @@ def evaluate_momentum_walk_forward(
     score_key: str = "momentum_score",
     return_key: str = "forward_return_pct",
     n_splits: int = 5,
+    min_observations_per_fold: int = 20,
 ) -> MomentumWalkForwardReport:
     """Evaluate score/return relationships across chronological equal-sized folds.
 
@@ -57,6 +64,13 @@ def evaluate_momentum_walk_forward(
     The caller is responsible for point-in-time-safe scores and non-overlapping
     forward-return labels.
     """
+    if (
+        isinstance(min_observations_per_fold, bool)
+        or not isinstance(min_observations_per_fold, int)
+        or min_observations_per_fold < 1
+    ):
+        raise ValueError("min_observations_per_fold must be a positive integer")
+
     if isinstance(n_splits, bool) or not isinstance(n_splits, int) or n_splits < 2:
         raise ValueError("n_splits must be an integer of at least 2")
 
@@ -103,6 +117,7 @@ def evaluate_momentum_walk_forward(
                 win_rate_pct=metrics.win_rate_pct,
                 score_return_correlation=metrics.score_return_correlation,
                 top_minus_bottom_return_pct=metrics.top_minus_bottom_return_pct,
+                low_sample_warning=metrics.observation_count < min_observations_per_fold,
             )
         )
 
@@ -110,7 +125,24 @@ def evaluate_momentum_walk_forward(
         fold.top_minus_bottom_return_pct is not None and fold.top_minus_bottom_return_pct > 0
         for fold in folds
     )
-    eligible_spread_count = sum(fold.top_minus_bottom_return_pct is not None for fold in folds)
+    eligible_spreads = [
+        fold.top_minus_bottom_return_pct
+        for fold in folds
+        if fold.top_minus_bottom_return_pct is not None
+    ]
+    eligible_spread_count = len(eligible_spreads)
+    mean_spread = (
+        sum(eligible_spreads) / eligible_spread_count if eligible_spread_count else None
+    )
+    spread_std_dev = (
+        math.sqrt(
+            sum((spread - mean_spread) ** 2 for spread in eligible_spreads)
+            / eligible_spread_count
+        )
+        if eligible_spread_count and mean_spread is not None
+        else None
+    )
+    low_sample_fold_count = sum(fold.low_sample_warning for fold in folds)
     return MomentumWalkForwardReport(
         observation_count=len(normalized),
         fold_count=len(folds),
@@ -118,5 +150,9 @@ def evaluate_momentum_walk_forward(
         positive_spread_fold_rate_pct=(
             100.0 * positive_spread_count / eligible_spread_count if eligible_spread_count else None
         ),
+        mean_spread_pct=mean_spread,
+        spread_std_dev_pct=spread_std_dev,
+        low_sample_fold_count=low_sample_fold_count,
+        insufficient_evidence=low_sample_fold_count > 0 or eligible_spread_count < 2,
         folds=tuple(folds),
     )
