@@ -7,7 +7,8 @@ not fetch data, create trading signals, or change scanner rankings.
 from __future__ import annotations
 
 import math
-import random
+
+import numpy as np
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -158,13 +159,11 @@ def evaluate_momentum_walk_forward(
     )
     ci_lower = ci_upper = None
     if eligible_spread_count >= 2:
-        # Bootstrap resampling is statistical, not security-sensitive; a seeded
-        # PRNG keeps research diagnostics reproducible.
-        rng = random.Random(random_seed)
+        # NumPy's seeded generator provides reproducible statistical resampling.
+        rng = np.random.default_rng(random_seed)
         sample_size = eligible_spread_count
         bootstrap_means = [
-            # NOSONAR — statistical bootstrap resampling; not security-sensitive.
-            sum(rng.choices(eligible_spreads, k=sample_size)) / sample_size
+            float(np.mean(rng.choice(eligible_spreads, size=sample_size, replace=True)))
             for _ in range(n_bootstrap)
         ]
         ordered = sorted(bootstrap_means)
