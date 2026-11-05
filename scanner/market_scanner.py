@@ -240,19 +240,26 @@ def _momentum_components(df: pd.DataFrame) -> dict[str, float | None]:
 
     last = df.iloc[-1]
     close = float(last["Close"])
-    sma20 = float(last["SMA_20"])
-    sma50 = float(last["SMA_50"])
-    prior_close = float(df["Close"].iloc[-21])
-    average_volume = float(df["Volume"].tail(20).mean())
+    close_series = pd.to_numeric(df["Close"], errors="coerce")
+    sma20_series = (
+        pd.to_numeric(df["SMA_20"], errors="coerce")
+        if "SMA_20" in df
+        else close_series.rolling(20).mean()
+    )
+    sma50_series = (
+        pd.to_numeric(df["SMA_50"], errors="coerce")
+        if "SMA_50" in df
+        else close_series.rolling(50).mean()
+    )
+    sma20 = float(sma20_series.iloc[-1])
+    sma50 = float(sma50_series.iloc[-1])
+    prior_close = float(close_series.iloc[-21])
+    average_volume = float(pd.to_numeric(df["Volume"], errors="coerce").iloc[-21:-1].mean())
     latest_volume = float(last["Volume"])
     high_20 = float(df["High"].tail(20).max())
 
     trend_score = (
-        100.0
-        if close >= sma20 and close >= sma50
-        else 50.0
-        if close >= sma20 or close >= sma50
-        else 0.0
+        100.0 if close >= sma20 and close >= sma50 else 50.0 if close >= sma20 or close >= sma50 else 0.0
     )
     return_pct = ((close / prior_close) - 1.0) * 100 if prior_close > 0 else 0.0
     relative_strength_score = max(0.0, min(100.0, (return_pct + 10.0) * 5.0))
@@ -262,11 +269,7 @@ def _momentum_components(df: pd.DataFrame) -> dict[str, float | None]:
         if volume_ratio is not None
         else None
     )
-    breakout_score = (
-        max(0.0, min(100.0, (close / high_20) * 100.0))
-        if high_20 > 0
-        else None
-    )
+    breakout_score = max(0.0, min(100.0, (close / high_20) * 100.0)) if high_20 > 0 else None
     return {
         "trend": trend_score,
         "relative_strength": relative_strength_score,
