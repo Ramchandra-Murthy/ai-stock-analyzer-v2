@@ -149,9 +149,8 @@ def evaluate_momentum_scores(
             )
         )
 
-    populated = [bucket for bucket in bucket_results if bucket.count]
-    bottom_mean = populated[0].mean_forward_return_pct if populated else None
-    top_mean = populated[-1].mean_forward_return_pct if populated else None
+    bottom_mean = bucket_results[0].mean_forward_return_pct
+    top_mean = bucket_results[-1].mean_forward_return_pct
     spread = top_mean - bottom_mean if top_mean is not None and bottom_mean is not None else None
     return MomentumValidationReport(
         observation_count=len(scores),
