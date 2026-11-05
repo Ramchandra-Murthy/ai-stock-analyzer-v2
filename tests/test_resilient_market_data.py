@@ -152,3 +152,103 @@ def test_download_market_frames_reports_safe_failure_diagnostics(monkeypatch) ->
     assert diagnostics["missing"] == ["AAA.NS"]
     assert diagnostics["complete"] is False
     assert diagnostics["failure_diagnostics"] == ["batch request returned no rows"]
+
+
+class _FakeTicker:
+    """Stand-in for ``yf.Ticker`` that records how many history requests are made."""
+
+    requests: list[str] = []
+    responses: dict[str, pd.DataFrame] = {}
+
+    def __init__(self, ticker: str) -> None:
+        self.ticker = ticker
+
+    def history(self, **_kwargs) -> pd.DataFrame:
+        type(self).requests.append(self.ticker)
+        return type(self).responses.get(self.ticker, pd.DataFrame())
+
+
+def _install_fake_ticker(monkeypatch, responses: dict[str, pd.DataFrame]) -> list[float]:
+    _FakeTicker.requests = []
+    _FakeTicker.responses = responses
+    sleeps: list[float] = []
+    monkeypatch.setattr(market_data.yf, "Ticker", _FakeTicker)
+    monkeypatch.setattr(market_data, "sleep", sleeps.append)
+    return sleeps
+
+
+def test_download_single_makes_exactly_one_request_without_retries(monkeypatch) -> None:
+    sleeps = _install_fake_ticker(monkeypatch, {})
+
+    frame = market_data._download_single(
+        "AAA.NS", period="1d", interval="1m", auto_adjust=False, timeout=4, retries=0
+    )
+
+    assert frame.empty
+    assert _FakeTicker.requests == ["AAA.NS"]
+    assert sleeps == []
+
+
+def test_download_single_keeps_default_retries_with_backoff(monkeypatch) -> None:
+    sleeps = _install_fake_ticker(monkeypatch, {})
+
+    market_data._download_single("AAA.NS", period="1d", interval="1m", auto_adjust=False, timeout=4)
+
+    assert len(_FakeTicker.requests) == market_data.DEFAULT_RETRIES + 1
+    assert len(sleeps) == market_data.DEFAULT_RETRIES
+
+
+def test_download_symbols_individually_recovers_available_symbols(monkeypatch) -> None:
+    _install_fake_ticker(monkeypatch, {"BBB.NS": _frame()})
+
+    frames, missing = market_data.download_symbols_individually(
+        ["AAA.NS", "BBB.NS", "CCC.NS"], period="1d", interval="1m", retries=0
+    )
+
+    assert set(frames) == {"BBB.NS"}
+    assert missing == ["AAA.NS", "CCC.NS"]
+    assert _FakeTicker.requests == ["AAA.NS", "BBB.NS", "CCC.NS"]
+
+
+def test_download_symbols_individually_caps_the_number_of_requests(monkeypatch) -> None:
+    _install_fake_ticker(monkeypatch, {})
+    symbols = [f"S{i}.NS" for i in range(10)]
+
+    frames, missing = market_data.download_symbols_individually(
+        symbols, period="1d", interval="1m", retries=0, max_symbols=3
+    )
+
+    assert frames == {}
+    assert _FakeTicker.requests == symbols[:3]  # hard cap on provider requests
+    assert missing == symbols  # unattempted symbols stay unresolved, never invented
+
+
+def test_download_symbols_individually_never_fabricates_frames(monkeypatch) -> None:
+    _install_fake_ticker(monkeypatch, {})
+
+    frames, missing = market_data.download_symbols_individually(
+        ["AAA.NS", "AAA.NS", " bbb.ns "], period="1d", interval="1m", retries=0
+    )
+
+    assert frames == {}
+    assert missing == ["AAA.NS", "BBB.NS"]  # de-duplicated and normalised
+
+
+def test_batch_then_single_recovery_with_mocked_provider(monkeypatch) -> None:
+    """A batch that resolves only some symbols is completed by direct requests."""
+
+    def partial_batch(tickers, **_kwargs):
+        return pd.concat({"AAA.NS": _frame()}, axis=1) if "AAA.NS" in tickers else pd.DataFrame()
+
+    monkeypatch.setattr(market_data, "_download_batch", partial_batch)
+    _install_fake_ticker(monkeypatch, {"BBB.NS": _frame()})
+
+    frames, missing = market_data.download_symbol_frames(
+        ["AAA.NS", "BBB.NS", "CCC.NS"],
+        period="1d",
+        interval="1m",
+        recover_missing=True,
+    )
+
+    assert set(frames) == {"AAA.NS", "BBB.NS"}
+    assert missing == ["CCC.NS"]
