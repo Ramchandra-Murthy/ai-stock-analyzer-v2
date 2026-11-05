@@ -59,7 +59,7 @@ from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
 def test_top10_live_scanner_refreshes_every_minute() -> None:
     assert TOP10_REFRESH_SECONDS == 60
     assert TOP10_CACHE_SECONDS < TOP10_REFRESH_SECONDS
-    assert TOP10_CHUNK_SIZE == 20
+    assert TOP10_CHUNK_SIZE == 10
     assert TOP10_MAX_NSE_CANDIDATES == 10
     assert TOP10_MAX_BSE_CANDIDATES == 10
     assert TOP10_PROVIDER_RETRIES == 0
