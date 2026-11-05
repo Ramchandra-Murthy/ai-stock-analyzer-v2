@@ -35,7 +35,46 @@ def test_splits_observations_chronologically_and_reports_fold_metrics():
     assert report.insufficient_evidence is True
     assert report.mean_spread_pct is not None
     assert report.spread_std_dev_pct is not None
+    assert report.spread_ci_lower_pct is not None
+    assert report.spread_ci_upper_pct is not None
+    assert report.spread_ci_lower_pct <= report.mean_spread_pct <= report.spread_ci_upper_pct
     assert all(fold.low_sample_warning for fold in report.folds)
+
+
+def test_bootstrap_interval_is_reproducible_for_same_seed():
+    first = evaluate_momentum_walk_forward(_rows(), n_splits=3, random_seed=7)
+    second = evaluate_momentum_walk_forward(_rows(), n_splits=3, random_seed=7)
+
+    assert first.spread_ci_lower_pct == second.spread_ci_lower_pct
+    assert first.spread_ci_upper_pct == second.spread_ci_upper_pct
+
+
+def test_bootstrap_interval_is_absent_when_spread_metrics_are_unavailable():
+    rows = [
+        {"date": f"2026-01-{day:02d}", "momentum_score": 50, "forward_return_pct": 1.0}
+        for day in range(1, 7)
+    ]
+    report = evaluate_momentum_walk_forward(rows, n_splits=3, min_observations_per_fold=1)
+
+    assert report.spread_ci_lower_pct is None
+    assert report.spread_ci_upper_pct is None
+
+
+@pytest.mark.parametrize("n_bootstrap", [0, 99, 1.5, True])
+def test_invalid_bootstrap_count_is_rejected(n_bootstrap):
+    with pytest.raises(ValueError, match="n_bootstrap"):
+        evaluate_momentum_walk_forward(_rows(), n_splits=3, n_bootstrap=n_bootstrap)
+
+
+@pytest.mark.parametrize("confidence_level", [0, 1, -0.1, 1.1, float("nan"), True])
+def test_invalid_confidence_level_is_rejected(confidence_level):
+    with pytest.raises(ValueError, match="confidence_level"):
+        evaluate_momentum_walk_forward(_rows(), n_splits=3, confidence_level=confidence_level)
+
+
+def test_invalid_random_seed_is_rejected():
+    with pytest.raises(ValueError, match="random_seed"):
+        evaluate_momentum_walk_forward(_rows(), n_splits=3, random_seed=1.5)
 
 
 def test_fold_sizes_are_balanced_when_observations_do_not_divide_evenly():
