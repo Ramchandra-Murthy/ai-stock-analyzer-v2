@@ -122,8 +122,7 @@ def evaluate_momentum_walk_forward(
         )
 
     positive_spread_count = sum(
-        fold.top_minus_bottom_return_pct is not None
-        and fold.top_minus_bottom_return_pct > 0
+        fold.top_minus_bottom_return_pct is not None and fold.top_minus_bottom_return_pct > 0
         for fold in folds
     )
     eligible_spreads = [
@@ -132,13 +131,10 @@ def evaluate_momentum_walk_forward(
         if fold.top_minus_bottom_return_pct is not None
     ]
     eligible_spread_count = len(eligible_spreads)
-    mean_spread = (
-        sum(eligible_spreads) / eligible_spread_count if eligible_spread_count else None
-    )
+    mean_spread = sum(eligible_spreads) / eligible_spread_count if eligible_spread_count else None
     spread_std_dev = (
         math.sqrt(
-            sum((spread - mean_spread) ** 2 for spread in eligible_spreads)
-            / eligible_spread_count
+            sum((spread - mean_spread) ** 2 for spread in eligible_spreads) / eligible_spread_count
         )
         if eligible_spread_count and mean_spread is not None
         else None
