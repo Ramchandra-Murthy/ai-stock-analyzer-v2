@@ -57,8 +57,11 @@ def run_backtest(
 ) -> tuple[pd.DataFrame, BacktestMetrics]:
     """Backtest target positions using signals from the preceding bar.
 
-    Signals should be -1, 0 or 1. A signal observed on day *t* is applied to
-    the return on day *t+1*, avoiding same-bar look-ahead.
+    Signals should be -1, 0 or 1. A signal observed at timestamp *t* is
+    shifted to the next aligned observation and applied to that observation's
+    close-to-close return. This is a next-bar close-to-close model; it does not
+    simulate execution at the next bar's Open. Signal generation must itself be
+    point-in-time and must not use future observations.
     """
     if not np.isfinite(initial_capital) or initial_capital <= 0:
         raise ValueError("initial_capital must be finite and greater than zero")

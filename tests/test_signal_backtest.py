@@ -33,3 +33,26 @@ def test_pipeline_signals_are_bounded() -> None:
     signals = generate_pipeline_signals(frame, benchmark)
 
     assert signals.isin([-1.0, 0.0, 1.0]).all()
+
+
+def test_pipeline_signal_at_cutoff_is_unchanged_by_future_price_shock() -> None:
+    frame = _frame()
+    benchmark = pd.Series(100.0, index=frame.index)
+    cutoff = 70
+
+    baseline = generate_pipeline_signals(frame, benchmark)
+
+    shocked_frame = frame.copy()
+    future_index = shocked_frame.index[cutoff + 1 :]
+    shocked_frame.loc[future_index, "High"] *= 8.0
+    shocked_frame.loc[future_index, "Low"] *= 0.2
+    shocked_frame.loc[future_index, "Close"] *= 5.0
+
+    shocked_benchmark = benchmark.copy()
+    shocked_benchmark.loc[future_index] *= 3.0
+    shocked = generate_pipeline_signals(shocked_frame, shocked_benchmark)
+
+    pd.testing.assert_series_equal(
+        baseline.iloc[: cutoff + 1],
+        shocked.iloc[: cutoff + 1],
+    )
