@@ -107,21 +107,16 @@ def evaluate_momentum_walk_forward(
         )
 
     positive_spread_count = sum(
-        fold.top_minus_bottom_return_pct is not None
-        and fold.top_minus_bottom_return_pct > 0
+        fold.top_minus_bottom_return_pct is not None and fold.top_minus_bottom_return_pct > 0
         for fold in folds
     )
-    eligible_spread_count = sum(
-        fold.top_minus_bottom_return_pct is not None for fold in folds
-    )
+    eligible_spread_count = sum(fold.top_minus_bottom_return_pct is not None for fold in folds)
     return MomentumWalkForwardReport(
         observation_count=len(normalized),
         fold_count=len(folds),
         positive_spread_fold_count=positive_spread_count,
         positive_spread_fold_rate_pct=(
-            100.0 * positive_spread_count / eligible_spread_count
-            if eligible_spread_count
-            else None
+            100.0 * positive_spread_count / eligible_spread_count if eligible_spread_count else None
         ),
         folds=tuple(folds),
     )
