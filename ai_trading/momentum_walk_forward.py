@@ -173,9 +173,7 @@ def evaluate_momentum_walk_forward(
             if lower_index == upper_index:
                 return ordered[lower_index]
             fraction = position - lower_index
-            return ordered[lower_index] + fraction * (
-                ordered[upper_index] - ordered[lower_index]
-            )
+            return ordered[lower_index] + fraction * (ordered[upper_index] - ordered[lower_index])
 
         tail = (1.0 - float(confidence_level)) / 2.0
         ci_lower = percentile(tail)
