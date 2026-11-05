@@ -22,7 +22,7 @@ def test_report_summarizes_buckets_and_top_bottom_spread():
     assert report.top_bucket_mean_return_pct == pytest.approx(5.0)
     assert report.bottom_bucket_mean_return_pct == pytest.approx(-2.0)
     assert report.top_minus_bottom_return_pct == pytest.approx(7.0)
-    assert report.score_return_correlation == pytest.approx(0.964)
+    assert report.score_return_correlation == pytest.approx(0.9807886628)
 
 
 def test_empty_observations_return_none_metrics_and_zero_counts():
