@@ -21,7 +21,7 @@ TOP10_REFRESH_SECONDS = 60
 TOP10_UI_POLL_SECONDS = 2
 TOP10_CACHE_SECONDS = 50
 TOP10_TIMEZONE = "Asia/Kolkata"
-TOP10_CHUNK_SIZE = 20
+TOP10_CHUNK_SIZE = 10
 TOP10_MAX_NSE_CANDIDATES = 10
 TOP10_MAX_BSE_CANDIDATES = 10
 TOP10_PROVIDER_RETRIES = 0
@@ -581,7 +581,7 @@ def _download_top10_frames(
             batch_size=TOP10_CHUNK_SIZE,
             timeout=TOP10_PROVIDER_TIMEOUT,
             retries=TOP10_PROVIDER_RETRIES,
-            recover_missing=False,
+            recover_missing=True,
             diagnostics=_PROVIDER_DIAGNOSTICS,
         )
         merged = {**dhan_frames, **yahoo_frames}
@@ -594,7 +594,7 @@ def _download_top10_frames(
         batch_size=TOP10_CHUNK_SIZE,
         timeout=TOP10_PROVIDER_TIMEOUT,
         retries=TOP10_PROVIDER_RETRIES,
-        recover_missing=False,
+        recover_missing=True,
         diagnostics=_PROVIDER_DIAGNOSTICS,
     )
     return frames, missing, "Yahoo"
