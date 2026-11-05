@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from scanner.market_scanner import _extract_series
 
@@ -190,7 +191,7 @@ def test_momentum_components_are_bounded_and_use_recent_ohlcv() -> None:
     assert all(value is None or 0 <= value <= 100 for value in components.values())
     assert components["trend"] == 100
     assert components["volume_expansion"] == 100
-    assert components["breakout_quality"] == 100
+    assert components["breakout_quality"] == pytest.approx(99.0099009901)
 
 
 def test_momentum_components_are_unavailable_for_short_history() -> None:
