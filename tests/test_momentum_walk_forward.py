@@ -70,9 +70,7 @@ def test_reports_positive_spread_rate_only_for_folds_with_spread():
 
 
 def test_sample_threshold_can_mark_folds_as_sufficient():
-    report = evaluate_momentum_walk_forward(
-        _rows(), n_splits=3, min_observations_per_fold=2
-    )
+    report = evaluate_momentum_walk_forward(_rows(), n_splits=3, min_observations_per_fold=2)
 
     assert report.low_sample_fold_count == 0
     assert report.insufficient_evidence is False
@@ -82,9 +80,7 @@ def test_sample_threshold_can_mark_folds_as_sufficient():
 @pytest.mark.parametrize("threshold", [0, -1, 1.5, True])
 def test_invalid_minimum_sample_threshold_is_rejected(threshold):
     with pytest.raises(ValueError, match="min_observations_per_fold"):
-        evaluate_momentum_walk_forward(
-            _rows(), n_splits=3, min_observations_per_fold=threshold
-        )
+        evaluate_momentum_walk_forward(_rows(), n_splits=3, min_observations_per_fold=threshold)
 
 
 def test_insufficient_evidence_when_too_few_folds_have_spread_metrics():
@@ -92,9 +88,7 @@ def test_insufficient_evidence_when_too_few_folds_have_spread_metrics():
         {"date": f"2026-01-{day:02d}", "momentum_score": 50, "forward_return_pct": 1.0}
         for day in range(1, 7)
     ]
-    report = evaluate_momentum_walk_forward(
-        rows, n_splits=3, min_observations_per_fold=1
-    )
+    report = evaluate_momentum_walk_forward(rows, n_splits=3, min_observations_per_fold=1)
 
     assert report.insufficient_evidence is True
     assert report.mean_spread_pct is None
