@@ -7,11 +7,11 @@ not fetch data, create trading signals, or change scanner rankings.
 from __future__ import annotations
 
 import math
-
-import numpy as np
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
+
+import numpy as np
 
 from ai_trading.momentum_validation import evaluate_momentum_scores
 
