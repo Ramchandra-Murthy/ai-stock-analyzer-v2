@@ -259,7 +259,9 @@ def _momentum_components(df: pd.DataFrame) -> dict[str, float | None]:
     high_20 = float(df["High"].tail(20).max())
 
     trend_score = (
-        100.0 if close >= sma20 and close >= sma50 else 50.0 if close >= sma20 or close >= sma50 else 0.0
+        100.0
+        if close >= sma20 and close >= sma50
+        else 50.0 if close >= sma20 or close >= sma50 else 0.0
     )
     return_pct = ((close / prior_close) - 1.0) * 100 if prior_close > 0 else 0.0
     relative_strength_score = max(0.0, min(100.0, (return_pct + 10.0) * 5.0))
