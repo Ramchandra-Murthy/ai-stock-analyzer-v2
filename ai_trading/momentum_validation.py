@@ -1,7 +1,7 @@
 """Research-only validation of momentum scores against forward returns.
 
 This module does not create trading signals. It summarizes historical observations
- to help assess whether score rankings have predictive value.
+to help assess whether score rankings have predictive value.
 """
 
 from __future__ import annotations
