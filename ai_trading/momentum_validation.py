@@ -77,7 +77,7 @@ def _correlation(xs: list[float], ys: list[float]) -> float | None:
     denominator = math.sqrt(x_variance * y_variance)
     if denominator == 0:
         return None
-    return sum(x * y for x, y in zip(x_delta, y_delta)) / denominator
+    return sum(x * y for x, y in zip(x_delta, y_delta, strict=True)) / denominator
 
 
 def evaluate_momentum_scores(
@@ -129,7 +129,7 @@ def evaluate_momentum_scores(
     for index, (lower, upper) in enumerate(score_bins):
         bucket_returns = [
             forward_return
-            for score, forward_return in zip(scores, returns)
+            for score, forward_return in zip(scores, returns, strict=True)
             if lower <= score < upper or (index == len(score_bins) - 1 and score == upper)
         ]
         bucket_results.append(
