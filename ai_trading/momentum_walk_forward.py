@@ -6,8 +6,8 @@ not fetch data, create trading signals, or change scanner rankings.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
 import math
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -122,7 +122,8 @@ def evaluate_momentum_walk_forward(
         )
 
     positive_spread_count = sum(
-        fold.top_minus_bottom_return_pct is not None and fold.top_minus_bottom_return_pct > 0
+        fold.top_minus_bottom_return_pct is not None
+        and fold.top_minus_bottom_return_pct > 0
         for fold in folds
     )
     eligible_spreads = [
