@@ -190,7 +190,7 @@ def test_price_jump_queue_rejects_new_work_when_all_slots_are_active() -> None:
 
     manager = ErosScanManager(max_workers=1, max_jobs=1)
     with patch("api.scan_manager.scan_price_jumps", side_effect=scan):
-        manager.start_price_jump_scan(lookback_minutes=5)
+        job_id = manager.start_price_jump_scan(lookback_minutes=5)
         assert started.wait(timeout=2)
 
         with pytest.raises(RuntimeError, match="Scan queue is full"):
@@ -198,7 +198,7 @@ def test_price_jump_queue_rejects_new_work_when_all_slots_are_active() -> None:
 
         release.set()
         for _ in range(100):
-            job = manager.get_job(next(iter(manager._jobs)))
+            job = manager.get_job(job_id)
             if job and job["status"] == "completed":
                 break
             time.sleep(0.01)
