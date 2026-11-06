@@ -95,21 +95,30 @@ def download_with_fallback(
     download: Callable[[list[str]], tuple[dict[str, pd.DataFrame], list[str]]],
     tickers: Iterable[str],
     alternates: Mapping[str, str],
+    *,
+    prefer_alternate: bool = False,
 ) -> dict[str, pd.DataFrame]:
     """Download ``tickers``; retry each one that came back empty under its alternate ticker.
 
-    Yahoo serves some BSE listings under the scrip code (``500325.BO``) and others only under
-    the name (``RELIANCE.BO``). A recovered frame is stored under the *original* ticker so the
-    rest of the scan, and its coverage count, need no changes.
+    Yahoo serves BSE listings under the name (``RELIANCE.BO``) and, on some networks, not at
+    all under the scrip code (``500325.BO``). With ``prefer_alternate`` the alternate is tried
+    first and the original is the retry, so a name-serving network needs one round trip. A
+    recovered frame is stored under the *original* ticker so the rest of the scan, and its
+    coverage count, need no changes.
     """
     wanted = list(dict.fromkeys(tickers))
-    frames, _ = download(wanted)
-    frames = {t: f for t, f in frames.items() if f is not None and not f.empty}
-    retry = {t: alternates[t] for t in wanted if t not in frames and alternates.get(t)}
-    if retry:
-        recovered, _ = download(list(dict.fromkeys(retry.values())))
-        for original, alternate in retry.items():
-            frame = recovered.get(alternate)
-            if frame is not None and not frame.empty:
-                frames[original] = frame
-    return frames
+    first = {t: (alternates.get(t) or t) if prefer_alternate else t for t in wanted}
+    second = {t: (t if prefer_alternate else alternates.get(t)) for t in wanted}
+
+    def fetch(mapping: Mapping[str, str | None]) -> dict[str, pd.DataFrame]:
+        asked = list(dict.fromkeys(v for v in mapping.values() if v))
+        frames, _ = download(asked) if asked else ({}, [])
+        got = {t: f for t, f in frames.items() if f is not None and not f.empty}
+        return {orig: got[ask] for orig, ask in mapping.items() if ask and ask in got}
+
+    result = fetch(first)
+    retry = {
+        t: second[t] for t in wanted if t not in result and second[t] and second[t] != first[t]
+    }
+    result.update(fetch(retry))
+    return result

@@ -38,7 +38,9 @@ def test_columns_use_display_names_in_order():
 
 
 def test_symbol_without_data_is_named_not_fatal():
-    close, missing = load_close_prices(NAMES, "5y", fetch=_fetch(empty=("500325.BO",)))
+    close, missing = load_close_prices(
+        NAMES, "5y", fetch=_fetch(empty=("500325.BO", "RELIANCE.BO"))
+    )
     assert list(close.columns) == ["TCS"]
     assert missing == ["RELIANCE (BSE 500325)"]
 
@@ -58,7 +60,7 @@ def test_empty_download_reports_every_name(result):
 
 
 def test_load_returns_survives_one_dead_ticker():
-    returns, missing = load_returns(NAMES, "5y", fetch=_fetch(empty=("500325.BO",)))
+    returns, missing = load_returns(NAMES, "5y", fetch=_fetch(empty=("500325.BO", "RELIANCE.BO")))
     assert list(returns.columns) == ["TCS"]
     assert missing == ["RELIANCE (BSE 500325)"]
     assert not returns.isna().any().any()
@@ -79,3 +81,27 @@ def test_duplicate_tickers_and_empty_input_rejected():
         load_close_prices({}, "5y", fetch=_fetch())
     with pytest.raises(ValueError):
         load_close_prices({"A": "TCS.NS", "B": "TCS.NS"}, "5y", fetch=_fetch())
+
+
+def test_bse_scrip_code_is_requested_by_name_first():
+    asked = []
+
+    def fetch(tickers, **kwargs):
+        asked.append(list(tickers))
+        return _frame(tickers)
+
+    close, missing = load_close_prices(NAMES, "5y", fetch=fetch)
+    assert asked == [["TCS.NS", "RELIANCE.BO"]]  # one call, name form
+    assert list(close.columns) == ["TCS", "RELIANCE (BSE 500325)"] and missing == []
+
+
+def test_falls_back_to_scrip_code_when_name_form_is_empty():
+    asked = []
+
+    def fetch(tickers, **kwargs):
+        asked.append(list(tickers))
+        return _frame(tickers, empty=("RELIANCE.BO",))
+
+    close, missing = load_close_prices(NAMES, "5y", fetch=fetch)
+    assert asked == [["TCS.NS", "RELIANCE.BO"], ["500325.BO"]]
+    assert list(close.columns) == ["TCS", "RELIANCE (BSE 500325)"] and missing == []

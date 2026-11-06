@@ -5,7 +5,9 @@ from modules.market_movers import _extract_frame, _ticker, _top_table, _window_c
 
 def test_ticker_normalization_preserves_exchange_suffix():
     assert _ticker("RELIANCE", "NSE") == "RELIANCE.NS"
-    assert _ticker("500325", "BSE") == "500325.BO"
+    # Yahoo serves the name form for curated BSE codes (measured via Data Health).
+    assert _ticker("500325", "BSE") == "RELIANCE.BO"
+    assert _ticker("999999", "BSE") == "999999.BO"
     assert _ticker("TCS.NS", "BSE") == "TCS.NS"
 
 

@@ -12,6 +12,8 @@ from collections.abc import Callable, Mapping
 
 import pandas as pd
 
+from services.symbol_resolver import yahoo_ticker
+
 Fetch = Callable[..., pd.DataFrame | None]
 
 
@@ -34,23 +36,40 @@ def load_close_prices(
     """
     if not tickers_by_name:
         raise ValueError("No symbols to download.")
-    ticker_to_name = {ticker: name for name, ticker in tickers_by_name.items()}
-    if len(ticker_to_name) != len(tickers_by_name):
+    if len(set(tickers_by_name.values())) != len(tickers_by_name):
         raise ValueError("Two names point at the same ticker.")
-    tickers = list(ticker_to_name)
-    raw = (fetch or _default_fetch())(tickers, period=period, auto_adjust=True, progress=False)
-    if raw is None or raw.empty:
-        return pd.DataFrame(), list(tickers_by_name)
+    download = fetch or _default_fetch()
 
+    # Ask Yahoo for the form it serves (BSE name rather than scrip code), then retry any
+    # symbol that came back empty under the ticker the caller originally gave.
+    preferred = {name: yahoo_ticker(ticker) for name, ticker in tickers_by_name.items()}
+    close = _close_table(preferred, period, download)
+    missing = [name for name in tickers_by_name if name not in close.columns]
+    retry = {n: tickers_by_name[n] for n in missing if preferred[n] != tickers_by_name[n].upper()}
+    if retry:
+        extra = _close_table(retry, period, download)
+        if not extra.empty:
+            close = pd.concat([close, extra], axis=1)
+            missing = [name for name in tickers_by_name if name not in close.columns]
+    if close.empty:
+        return pd.DataFrame(), missing
+    return close.reindex(columns=[n for n in tickers_by_name if n in close.columns]), missing
+
+
+def _close_table(by_name: Mapping[str, str], period: str, download: Fetch) -> pd.DataFrame:
+    """One download; columns renamed to display names, empty columns dropped."""
+    ticker_to_name = {ticker: name for name, ticker in by_name.items()}
+    tickers = list(ticker_to_name)
+    raw = download(tickers, period=period, auto_adjust=True, progress=False)
+    if raw is None or raw.empty:
+        return pd.DataFrame()
     if isinstance(raw.columns, pd.MultiIndex):
         close = raw["Close"]
     else:
         close = raw[["Close"]].copy()
         close.columns = tickers[:1]
     close = close.rename(columns=lambda c: ticker_to_name.get(str(c), str(c)))
-    close = close.dropna(axis=1, how="all")
-    missing = [name for name in tickers_by_name if name not in close.columns]
-    return close.reindex(columns=[n for n in tickers_by_name if n in close.columns]), missing
+    return close.dropna(axis=1, how="all")
 
 
 def load_returns(

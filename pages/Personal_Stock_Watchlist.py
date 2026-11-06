@@ -155,7 +155,7 @@ def _scan_market_gainers(
                 timeout=timeout,
             )
 
-        return download_with_fallback(download, tickers, alternates)
+        return download_with_fallback(download, tickers, alternates, prefer_alternate=True)
 
     intraday_frames = fetch("1d", "5m", 4 if exchange == "BSE" else 6)
     daily_frames = fetch("5d", "1d", 4 if exchange == "BSE" else 8)

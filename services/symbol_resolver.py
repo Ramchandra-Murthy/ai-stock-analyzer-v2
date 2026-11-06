@@ -116,3 +116,22 @@ def company_label(ticker: str) -> str:
         # Keeps "TCS" (NSE) and "TCS" (BSE) distinguishable in tables and column headers.
         return f"{item.code} (BSE)"
     return item.code
+
+
+def yahoo_ticker(ticker: str) -> str:
+    """The Yahoo ticker that actually serves data for ``ticker``.
+
+    Measured on Streamlit Cloud (Data Health): ``RELIANCE.BO`` (name) loaded 24/24 but
+    ``500325.BO`` (scrip code) loaded 0/24. A curated BSE scrip code is therefore mapped to
+    its ``NAME.BO`` form; everything else is returned unchanged (upper-cased).
+    """
+    text = str(ticker or "").strip().upper()
+    try:
+        item = resolve_symbol(text)
+    except ValueError:
+        return text
+    if item.is_bse_scrip_code:
+        name = _bse_code_to_name().get(item.code)
+        if name:
+            return f"{name}{SUFFIX[BSE]}"
+    return text
