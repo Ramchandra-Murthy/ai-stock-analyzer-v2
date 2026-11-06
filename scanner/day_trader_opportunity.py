@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Any
 
 import pandas as pd
-import yfinance as yf
 
 from scanner.day_trading_strategy import (
     analyze_day_trade_setup,
@@ -25,6 +24,7 @@ from scanner.surveillance import (
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES, bse_candidates_for_nse_symbols
 from scanner.unusual_activity import CAP_UNIVERSES
 from services.intraday_vwap_orb import vwap_orb_metrics
+from services.resilient_market_data import download_market_frames
 
 CHUNK_SIZE = 100
 MAX_FAST_UNIVERSE = 200
@@ -163,6 +163,22 @@ def score_opportunity_rows(rows: pd.DataFrame) -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
+def _download_chunk_frames(
+    tickers: list[str], interval: str
+) -> tuple[dict[str, pd.DataFrame], dict[str, Any]]:
+    """Fetch one intraday chunk through the shared validated market-data boundary."""
+    return download_market_frames(
+        tickers,
+        period="1d",
+        interval=interval,
+        auto_adjust=False,
+        batch_size=CHUNK_SIZE,
+        timeout=10,
+        retries=0,
+        recover_missing=False,
+    )
+
+
 def scan_day_trader_opportunities(
     limit: int = 20,
     exchange_category: str = "Both",
@@ -224,27 +240,20 @@ def scan_day_trader_opportunities(
             chunk = tickers[start : start + CHUNK_SIZE]
             scan_stats["attempted_count"] += len(chunk)
             try:
-                history = yf.download(
-                    tickers=chunk,
-                    period="1d",
-                    interval=interval,
-                    progress=False,
-                    auto_adjust=False,
-                    group_by="ticker",
-                    threads=True,
-                    timeout=10,
-                )
+                frames, diagnostics = _download_chunk_frames(chunk, interval)
             except Exception:
                 scan_stats["download_failed_chunks"] += 1
                 continue
 
-            if history is None or history.empty:
+            if diagnostics.get("missing"):
+                scan_stats["download_failed_chunks"] += 1
+            if not frames:
                 scan_stats["empty_chunks"] += 1
                 continue
 
             for ticker in chunk:
                 try:
-                    data = _frame(history, ticker)
+                    data = _frame(frames.get(ticker, pd.DataFrame()), ticker)
                     if len(data) <= bars:
                         continue
 
