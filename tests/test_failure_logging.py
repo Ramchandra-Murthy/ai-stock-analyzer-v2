@@ -14,14 +14,10 @@ def _boom(*args, **kwargs):
 
 @pytest.fixture
 def market_scanner(monkeypatch):
-    """Import scanner.market_scanner whether or not yfinance is installed."""
-    try:
-        import yfinance  # noqa: F401
-    except ImportError:
-        monkeypatch.setitem(sys.modules, "yfinance", types.ModuleType("yfinance"))
+    """Make shared market-data downloads fail so scanner retry logging is exercised."""
     import scanner.market_scanner as module
 
-    monkeypatch.setattr(module.yf, "download", _boom, raising=False)
+    monkeypatch.setattr(module, "cached_download", _boom)
     return module
 
 

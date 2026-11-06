@@ -81,10 +81,16 @@ def show_settings() -> None:
     show()
 
 
+@st.cache_data(show_spinner=False)
+def _read_css() -> str:
+    """Read the shared application theme once per Streamlit cache lifetime."""
+    with open("assets/styles.css", encoding="utf-8") as css_file:
+        return css_file.read()
+
+
 def load_css() -> None:
     """Load the shared application theme."""
-    with open("assets/styles.css", encoding="utf-8") as css_file:
-        st.markdown(f"<style>{css_file.read()}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{_read_css()}</style>", unsafe_allow_html=True)
 
 
 st.set_page_config(

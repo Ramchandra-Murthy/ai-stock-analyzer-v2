@@ -370,8 +370,7 @@ def _fetch_live_board() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[
                         "Last update": str(close.index[-1]),
                     }
                 )
-
-    stats["processing_seconds"] += perf_counter() - processing_started
+            stats["processing_seconds"] += perf_counter() - processing_started
 
     board = pd.DataFrame(rows)
     if board.empty:

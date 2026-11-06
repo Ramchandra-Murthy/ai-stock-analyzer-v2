@@ -118,3 +118,62 @@ def test_queued_price_jump_scan_keeps_matching_job() -> None:
 
         assert job is not None
         assert job["status"] == "completed"
+
+
+def test_background_day_trader_scan_completes_and_preserves_scan_stats() -> None:
+    frame = pd.DataFrame({"Symbol": ["TEST"], "Opportunity score": [75.0]})
+    frame.attrs["scan_stats"] = {"candidate_count": 12, "usable_data_count": 1}
+    manager = ErosScanManager(max_workers=1)
+    with patch("api.scan_manager.scan_day_trader_opportunities", return_value=frame):
+        job_id = manager.start_day_trader_scan(exchange_category="NSE", limit=100)
+        for _ in range(100):
+            job = manager.get_job(job_id)
+            if job and job["status"] == "completed":
+                break
+            time.sleep(0.01)
+
+    assert job is not None
+    assert job["status"] == "completed"
+    assert job["count"] == 1
+    assert job["results"][0]["Symbol"] == "TEST"
+    assert job["scan_stats"] == {"candidate_count": 12, "usable_data_count": 1}
+
+
+def test_identical_active_day_trader_scans_are_deduplicated() -> None:
+    frame = pd.DataFrame({"Symbol": ["TEST"]})
+    started = Event()
+    release = Event()
+
+    def scan(**_kwargs: object) -> pd.DataFrame:
+        started.set()
+        release.wait(timeout=5)
+        return frame
+
+    manager = ErosScanManager(max_workers=1)
+    with patch("api.scan_manager.scan_day_trader_opportunities", side_effect=scan):
+        first = manager.start_day_trader_scan(exchange_category="NSE", limit=100)
+        assert started.wait(timeout=2)
+        duplicate = manager.start_day_trader_scan(exchange_category="NSE", limit=100)
+        different = manager.start_day_trader_scan(exchange_category="BSE", limit=100)
+        assert duplicate == first
+        assert different == first  # changed controls must not queue a second universe scan
+        release.set()
+
+
+def test_day_trader_scan_failure_is_reported_without_provider_details() -> None:
+    manager = ErosScanManager(max_workers=1)
+    with patch(
+        "api.scan_manager.scan_day_trader_opportunities",
+        side_effect=RuntimeError("https://provider.invalid/?token=secret"),
+    ):
+        job_id = manager.start_day_trader_scan(exchange_category="NSE")
+        for _ in range(100):
+            job = manager.get_job(job_id)
+            if job and job["status"] == "failed":
+                break
+            time.sleep(0.01)
+
+    assert job is not None
+    assert job["status"] == "failed"
+    assert job["error"] == "Day-Trader scan failed (RuntimeError)."
+    assert "secret" not in job["error"]

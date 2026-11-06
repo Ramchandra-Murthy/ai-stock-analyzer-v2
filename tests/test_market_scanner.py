@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from scanner.market_scanner import _extract_series
 
@@ -91,3 +92,161 @@ def test_market_scan_reports_per_exchange_coverage_when_no_movers(monkeypatch) -
             "final_rows": 0,
         }
     }
+
+
+def test_batch_change_screen_excludes_ticker_with_stale_last_bar(monkeypatch) -> None:
+    """A halted name (old last bar, big old move) must not rank beside fresh tickers."""
+    import pandas as pd
+
+    from scanner import market_scanner
+
+    dates = pd.to_datetime(["2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30"])
+    nan = float("nan")
+    columns = pd.MultiIndex.from_product([["AAA.NS", "BBB.NS"], ["Close", "Volume"]])
+    history = pd.DataFrame(
+        [
+            [100.0, 1_000, 100.0, 1_000],
+            [100.0, 1_000, 150.0, 1_000],  # BBB: +50% on 10-28, then no more bars
+            [100.0, 1_000, nan, nan],
+            [110.0, 1_000, nan, nan],  # AAA: +10% on the latest session
+        ],
+        index=dates,
+        columns=columns,
+    )
+    monkeypatch.setattr(market_scanner, "_download_chunk", lambda chunk: history)
+
+    ranked = market_scanner._batch_change_screen({"NSE": ["AAA", "BBB"]})
+
+    assert [row[0] for row in ranked] == ["AAA.NS"]
+    assert round(ranked[0][2], 6) == 10.0
+
+
+def test_batch_change_screen_keeps_all_tickers_on_the_same_session(monkeypatch) -> None:
+    import pandas as pd
+
+    from scanner import market_scanner
+
+    dates = pd.to_datetime(["2026-10-29", "2026-10-30"])
+    columns = pd.MultiIndex.from_product([["AAA.NS", "BBB.NS"], ["Close", "Volume"]])
+    history = pd.DataFrame(
+        [[100.0, 1_000, 100.0, 1_000], [110.0, 1_000, 80.0, 1_000]],
+        index=dates,
+        columns=columns,
+    )
+    monkeypatch.setattr(market_scanner, "_download_chunk", lambda chunk: history)
+
+    ranked = market_scanner._batch_change_screen({"NSE": ["AAA", "BBB"]})
+
+    assert sorted(row[0] for row in ranked) == ["AAA.NS", "BBB.NS"]
+    assert ranked[0][0] == "BBB.NS"  # |-20%| outranks |+10%|
+
+
+def test_analyze_history_stamps_the_last_bar_date() -> None:
+    import numpy as np
+    import pandas as pd
+
+    from scanner import market_scanner
+
+    index = pd.bdate_range(end="2026-10-30", periods=120)
+    close = pd.Series(np.linspace(100, 130, len(index)), index=index)
+    history = pd.DataFrame(
+        {
+            "Open": close,
+            "High": close * 1.01,
+            "Low": close * 0.99,
+            "Close": close,
+            "Volume": 1_000_000,
+        }
+    )
+
+    row = market_scanner._analyze_history("AAA.NS", history, 1.0e8)
+
+    assert row is not None
+    assert row["Data As Of"] == "2026-10-30"
+
+
+def test_momentum_components_are_bounded_and_use_recent_ohlcv() -> None:
+    from scanner.market_scanner import _momentum_components
+
+    close = pd.Series(range(100, 151), dtype="float64")
+    frame = pd.DataFrame(
+        {
+            "Close": close,
+            "High": close * 1.01,
+            "Low": close * 0.99,
+            "Volume": [1_000_000.0] * 50 + [2_000_000.0],
+            "SMA_20": close.rolling(20).mean(),
+            "SMA_50": close.rolling(50).mean(),
+        }
+    )
+
+    components = _momentum_components(frame)
+
+    assert set(components) == {
+        "trend",
+        "relative_strength",
+        "volume_expansion",
+        "breakout_quality",
+    }
+    assert all(value is None or 0 <= value <= 100 for value in components.values())
+    assert components["trend"] == 100
+    assert components["volume_expansion"] == 100
+    assert components["breakout_quality"] == pytest.approx(99.0099009901)
+
+
+def test_momentum_components_are_unavailable_for_short_history() -> None:
+    from scanner.market_scanner import _momentum_components
+
+    frame = pd.DataFrame(
+        {
+            "Close": [100.0] * 10,
+            "High": [101.0] * 10,
+            "Volume": [1_000.0] * 10,
+            "SMA_20": [100.0] * 10,
+            "SMA_50": [100.0] * 10,
+        }
+    )
+
+    assert all(value is None for value in _momentum_components(frame).values())
+
+
+def test_mover_download_uses_shared_short_ttl_cache(monkeypatch) -> None:
+    from scanner import market_scanner
+
+    calls = []
+    expected = pd.DataFrame({"Close": [100.0, 101.0]})
+
+    def fake_cached_download(**kwargs):
+        calls.append(kwargs)
+        return expected
+
+    monkeypatch.setattr(market_scanner, "cached_download", fake_cached_download)
+
+    result = market_scanner._download_chunk(["AAA.NS", "BBB.NS"])
+
+    assert result is expected
+    assert len(calls) == 1
+    assert calls[0]["tickers"] == ["AAA.NS", "BBB.NS"]
+    assert calls[0]["period"] == "5d"
+    assert calls[0]["ttl"] == 60
+
+
+def test_analysis_download_uses_shared_longer_ttl_cache(monkeypatch) -> None:
+    from scanner import market_scanner
+
+    calls = []
+    expected = pd.DataFrame({"Close": [100.0, 101.0]})
+
+    def fake_cached_download(**kwargs):
+        calls.append(kwargs)
+        return expected
+
+    monkeypatch.setattr(market_scanner, "cached_download", fake_cached_download)
+
+    result = market_scanner._download_analysis_chunk(["AAA.NS", "BBB.NS"])
+
+    assert result is expected
+    assert len(calls) == 1
+    assert calls[0]["tickers"] == ["AAA.NS", "BBB.NS"]
+    assert calls[0]["period"] == market_scanner.ANALYSIS_PERIOD
+    assert calls[0]["ttl"] == 900
