@@ -117,3 +117,59 @@ def test_multi_asset_category_and_details_persist(database_path):
     watchlists.update_stock_details("owner", watchlist_id, "MF-EXAMPLE-FLEXI-CAP", details)
     updated = watchlists.list_stock_records("owner", watchlist_id)[0]
     assert updated["asset_details"]["current_price_manual"] == 132.5
+
+
+def test_single_owner_migration_preserves_multi_asset_details(database_path):
+    import json
+    import sqlite3
+
+    with sqlite3.connect(database_path) as connection:
+        connection.executescript("""
+            CREATE TABLE watchlists (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (user_id, name)
+            );
+            CREATE TABLE watchlist_symbols (
+                watchlist_id INTEGER NOT NULL REFERENCES watchlists(id) ON DELETE CASCADE,
+                symbol TEXT NOT NULL,
+                position INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                entry_price REAL,
+                stop_loss REAL,
+                target_price REAL,
+                quantity INTEGER,
+                investment_type TEXT NOT NULL DEFAULT 'Watching',
+                purchase_date TEXT,
+                notes TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'Watching',
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                asset_category TEXT NOT NULL DEFAULT 'Stocks / F&O',
+                asset_details TEXT NOT NULL DEFAULT '{}',
+                PRIMARY KEY (watchlist_id, symbol)
+            );
+            INSERT INTO watchlists (id, user_id, name) VALUES
+                (1, 'user-a', 'Old list A'),
+                (2, 'user-b', 'Old list B');
+            """)
+        connection.execute(
+            """
+            INSERT INTO watchlist_symbols (
+                watchlist_id, symbol, asset_category, asset_details
+            ) VALUES (?, ?, ?, ?)
+            """,
+            (
+                2,
+                "MF-EXAMPLE",
+                "Mutual Funds",
+                json.dumps({"scheme": "Example Direct Growth", "units": 12.5}),
+            ),
+        )
+
+    migrated = watchlists.list_watchlists("any-session")
+    assert len(migrated) == 1
+    record = watchlists.list_stock_records("any-session", migrated[0]["id"])[0]
+    assert record["asset_category"] == "Mutual Funds"
+    assert record["asset_details"] == {"scheme": "Example Direct Growth", "units": 12.5}
