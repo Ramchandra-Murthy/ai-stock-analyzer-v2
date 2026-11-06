@@ -208,3 +208,45 @@ def test_momentum_components_are_unavailable_for_short_history() -> None:
     )
 
     assert all(value is None for value in _momentum_components(frame).values())
+
+
+def test_mover_download_uses_shared_short_ttl_cache(monkeypatch) -> None:
+    from scanner import market_scanner
+
+    calls = []
+    expected = pd.DataFrame({"Close": [100.0, 101.0]})
+
+    def fake_cached_download(**kwargs):
+        calls.append(kwargs)
+        return expected
+
+    monkeypatch.setattr(market_scanner, "cached_download", fake_cached_download)
+
+    result = market_scanner._download_chunk(["AAA.NS", "BBB.NS"])
+
+    assert result is expected
+    assert len(calls) == 1
+    assert calls[0]["tickers"] == ["AAA.NS", "BBB.NS"]
+    assert calls[0]["period"] == "5d"
+    assert calls[0]["ttl"] == 60
+
+
+def test_analysis_download_uses_shared_longer_ttl_cache(monkeypatch) -> None:
+    from scanner import market_scanner
+
+    calls = []
+    expected = pd.DataFrame({"Close": [100.0, 101.0]})
+
+    def fake_cached_download(**kwargs):
+        calls.append(kwargs)
+        return expected
+
+    monkeypatch.setattr(market_scanner, "cached_download", fake_cached_download)
+
+    result = market_scanner._download_analysis_chunk(["AAA.NS", "BBB.NS"])
+
+    assert result is expected
+    assert len(calls) == 1
+    assert calls[0]["tickers"] == ["AAA.NS", "BBB.NS"]
+    assert calls[0]["period"] == market_scanner.ANALYSIS_PERIOD
+    assert calls[0]["ttl"] == 900
