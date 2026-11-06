@@ -97,15 +97,14 @@ class ErosScanManager:
             job = self._jobs.get(job_id)
             return dict(job) if job is not None else None
 
-
     def start_day_trader_scan(self, **kwargs: Any) -> str:
         """Queue one Day-Trader scan at a time; reuse the active job on repeat requests."""
         with self._lock:
             for existing_id, existing_job in self._jobs.items():
-                if (
-                    existing_job.get("kind") == "day_trader"
-                    and existing_job["status"] in {"queued", "running"}
-                ):
+                if existing_job.get("kind") == "day_trader" and existing_job["status"] in {
+                    "queued",
+                    "running",
+                }:
                     return existing_id
 
             if len(self._jobs) >= self._max_jobs:
