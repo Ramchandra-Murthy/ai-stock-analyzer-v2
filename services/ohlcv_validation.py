@@ -53,11 +53,12 @@ def build_data_status(
     """Create explicit provider, retrieval, bar-time and validation metadata."""
     retrieved = retrieved_at or datetime.now(UTC)
     last_bar = frame.index[-1] if frame is not None and not frame.empty else None
+    last_bar_iso = None if last_bar is None else str(last_bar.isoformat())
     problems = list(errors or [])
     return {
         "source": source,
         "retrieved_at": retrieved.isoformat(),
-        "last_bar": last_bar.isoformat() if hasattr(last_bar, "isoformat") else None,
+        "last_bar": last_bar_iso,
         "status": "VALID" if frame is not None and not frame.empty and not problems else "INVALID",
         "row_count": len(frame) if frame is not None else 0,
         "validation_errors": problems,
