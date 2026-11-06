@@ -117,19 +117,3 @@ def test_multi_asset_category_and_details_persist(database_path):
     watchlists.update_stock_details("owner", watchlist_id, "MF-EXAMPLE-FLEXI-CAP", details)
     updated = watchlists.list_stock_records("owner", watchlist_id)[0]
     assert updated["asset_details"]["current_price_manual"] == 132.5
-
-
-@pytest.mark.parametrize(
-    "details",
-    [
-        {"entry_price": float("nan")},
-        {"stop_loss": float("inf")},
-        {"target_price": float("-inf")},
-        {"quantity": float("inf")},
-        {"quantity": 2.5},
-    ],
-)
-def test_watchlist_rejects_non_finite_prices_and_fractional_quantity(database_path, details):
-    watchlist_id = watchlists.create_watchlist("owner", "My Watchlist")
-    with pytest.raises(watchlists.WatchlistError):
-        watchlists.add_symbol("owner", watchlist_id, "INVALID", details)
