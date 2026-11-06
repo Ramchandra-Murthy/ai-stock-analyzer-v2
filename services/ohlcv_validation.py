@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
@@ -51,7 +51,7 @@ def build_data_status(
     errors: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create explicit provider, retrieval, bar-time and validation metadata."""
-    retrieved = retrieved_at or datetime.now(timezone.utc)
+    retrieved = retrieved_at or datetime.now(UTC)
     last_bar = frame.index[-1] if frame is not None and not frame.empty else None
     problems = list(errors or [])
     return {
