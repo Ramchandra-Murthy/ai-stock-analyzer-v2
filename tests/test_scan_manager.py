@@ -120,7 +120,6 @@ def test_queued_price_jump_scan_keeps_matching_job() -> None:
         assert job["status"] == "completed"
 
 
-
 def test_background_day_trader_scan_completes_and_preserves_scan_stats() -> None:
     frame = pd.DataFrame({"Symbol": ["TEST"], "Opportunity score": [75.0]})
     frame.attrs["scan_stats"] = {"candidate_count": 12, "usable_data_count": 1}
