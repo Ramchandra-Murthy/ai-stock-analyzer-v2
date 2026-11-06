@@ -124,8 +124,7 @@ def test_single_owner_migration_preserves_multi_asset_details(database_path):
     import sqlite3
 
     with sqlite3.connect(database_path) as connection:
-        connection.executescript(
-            """
+        connection.executescript("""
             CREATE TABLE watchlists (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -154,8 +153,7 @@ def test_single_owner_migration_preserves_multi_asset_details(database_path):
             INSERT INTO watchlists (id, user_id, name) VALUES
                 (1, 'user-a', 'Old list A'),
                 (2, 'user-b', 'Old list B');
-            """
-        )
+            """)
         connection.execute(
             """
             INSERT INTO watchlist_symbols (
