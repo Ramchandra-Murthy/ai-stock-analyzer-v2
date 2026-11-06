@@ -197,6 +197,11 @@ def test_price_jump_queue_rejects_new_work_when_all_slots_are_active() -> None:
             manager.start_price_jump_scan(lookback_minutes=10)
 
         release.set()
+        for _ in range(100):
+            job = manager.get_job(next(iter(manager._jobs)))
+            if job and job["status"] == "completed":
+                break
+            time.sleep(0.01)
 
 
 def test_price_jump_deduplication_does_not_match_day_trader_job() -> None:
@@ -221,6 +226,11 @@ def test_price_jump_deduplication_does_not_match_day_trader_job() -> None:
         assert price_jump_id != day_trader_id
         assert manager.get_job(price_jump_id)["kind"] == "price_jump"
         release.set()
+        for _ in range(100):
+            job = manager.get_job(price_jump_id)
+            if job and job["status"] == "completed":
+                break
+            time.sleep(0.01)
 
 
 def test_price_jump_failure_does_not_expose_provider_error_details() -> None:
