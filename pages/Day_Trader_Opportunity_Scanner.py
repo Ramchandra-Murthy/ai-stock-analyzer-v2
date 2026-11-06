@@ -367,7 +367,13 @@ if exchange_pulse.empty:
 else:
     st.dataframe(exchange_pulse, use_container_width=True, hide_index=True)
 @st.fragment(
-    run_every=5 if auto_refresh or st.session_state.get("price_jump_scan_job_id") else None,
+    run_every=(
+        5
+        if st.session_state.get("price_jump_scan_job_id")
+        else 60
+        if auto_refresh
+        else None
+    ),
     key="price_jump_watchlist",
 )
 def _price_jump_watchlist():
