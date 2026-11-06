@@ -4,7 +4,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-import yfinance as yf
+from services.cached_download import cached_download
 
 from ai_trading.momentum_scoring import score_momentum
 from engine.breakout_engine import detect_breakout
@@ -80,9 +80,10 @@ def _extract_history_frame(history: pd.DataFrame, ticker: str) -> pd.DataFrame:
 def _download_chunk(chunk: list[str]) -> pd.DataFrame:
     """Download a mover-screen chunk, retrying once without threading."""
     try:
-        history = yf.download(
+        history = cached_download(
             tickers=chunk,
             period="5d",
+            ttl=60,
             interval="1d",
             auto_adjust=True,
             progress=False,
@@ -101,9 +102,10 @@ def _download_chunk(chunk: list[str]) -> pd.DataFrame:
         )
 
     try:
-        history = yf.download(
+        history = cached_download(
             tickers=chunk,
             period="5d",
+            ttl=60,
             interval="1d",
             auto_adjust=True,
             progress=False,
@@ -125,9 +127,10 @@ def _download_chunk(chunk: list[str]) -> pd.DataFrame:
 def _download_analysis_chunk(chunk: list[str]) -> pd.DataFrame:
     """Download the full history for shortlisted tickers in one batch."""
     try:
-        history = yf.download(
+        history = cached_download(
             tickers=chunk,
             period=ANALYSIS_PERIOD,
+            ttl=900,
             interval="1d",
             auto_adjust=True,
             progress=False,
@@ -146,9 +149,10 @@ def _download_analysis_chunk(chunk: list[str]) -> pd.DataFrame:
         )
 
     try:
-        history = yf.download(
+        history = cached_download(
             tickers=chunk,
             period=ANALYSIS_PERIOD,
+            ttl=900,
             interval="1d",
             auto_adjust=True,
             progress=False,
