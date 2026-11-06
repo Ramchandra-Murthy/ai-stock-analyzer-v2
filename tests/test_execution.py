@@ -78,3 +78,26 @@ def test_rupee_shortfall_matches_hand_calculation():
 def test_bad_inputs_raise(call):
     with pytest.raises(ValueError):
         call()
+
+
+@pytest.mark.parametrize(
+    "schedule,prices,volumes,kwargs",
+    [
+        ([float("nan")], [100.0], [100.0], {}),
+        ([0.5], [100.0], [100.0], {}),
+        ([1], [100.0], [-1.0], {}),
+        ([1], [100.0], [float("inf")], {}),
+        ([1], [100.0], [100.0], {"arrival_price": 0.0}),
+        ([1], [100.0], [100.0], {"half_spread_bps": -1.0}),
+        ([1], [100.0], [100.0], {"adv": float("inf")}),
+    ],
+)
+def test_execution_rejects_non_finite_or_inconsistent_inputs(schedule, prices, volumes, kwargs):
+    params = {"adv": 1_000_000.0, "daily_vol": 0.02, **kwargs}
+    with pytest.raises(ValueError):
+        simulate_execution("buy", schedule, prices, volumes, **params)
+
+
+def test_square_root_impact_rejects_non_finite_parameters():
+    with pytest.raises(ValueError):
+        square_root_impact(1, float("inf"), 0.02)
