@@ -300,7 +300,8 @@ def test_day_trader_chunk_uses_shared_market_data_boundary(monkeypatch):
 
     frames, result = scanner._download_chunk_frames(["AAA.NS", "BBB.NS"], "5m")
 
-    assert frames == expected
+    assert list(frames) == ["AAA.NS"]
+    pd.testing.assert_frame_equal(frames["AAA.NS"], expected["AAA.NS"])
     assert result == diagnostics
     assert calls == [
         (
