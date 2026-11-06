@@ -53,7 +53,7 @@ def test_take_profit_and_trailing_stop_fire():
 
 def test_kill_switch_halts_everything_after_the_limit():
     zigzag = [100, 90, 100, 90, 100, 90, 100, 90] * 7
-    signal = pd.Series([i % 2 == 0 for i in range(60)], index=IDX)
+    signal = _always_on()
     killed = simulate_with_guards(
         _px(zigzag), signal, GuardConfig(kill_switch_drawdown=0.05, cost_bps=0)
     )
