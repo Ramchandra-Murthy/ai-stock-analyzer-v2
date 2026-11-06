@@ -289,7 +289,10 @@ def _day_trader_scan_status():
         st.session_state.pop("day_trader_scan_job_id", None)
         st.error("Background Day-Trader scan was lost. Please run the scan again.")
     elif job["status"] in {"queued", "running"}:
-        st.info("⏳ Day-Trader scan is running in the background. Results will appear automatically.")
+        st.info(
+            "⏳ Day-Trader scan is running in the background. "
+            "Results will appear automatically."
+        )
     elif job["status"] == "failed":
         st.session_state.pop("day_trader_scan_job_id", None)
         st.error(job.get("error") or "Day-Trader scan failed.")
@@ -313,7 +316,11 @@ if completed_scan is not None:
     scan_stats = results.attrs.get("scan_stats", {}) if results is not None else {}
     st.session_state["intraday_scan_stats"] = scan_stats
     results = results.head(limit).reset_index(drop=True)
-    scan_at = pd.Timestamp.now(tz="Asia/Kolkata")
+    scan_at = (
+        pd.Timestamp(completed_scan["finished_at"]).tz_convert("Asia/Kolkata")
+        if completed_scan.get("finished_at")
+        else pd.Timestamp.now(tz="Asia/Kolkata")
+    )
     st.session_state["intraday_market_regime"] = classify_scan_regime(results)
     snapshot_history = st.session_state.get("intraday_scan_snapshots", [])
     st.session_state["intraday_scan_snapshots"] = record_scan_snapshot(
