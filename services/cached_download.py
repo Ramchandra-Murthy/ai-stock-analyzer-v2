@@ -51,7 +51,12 @@ def _make_key(
     # Ticker order is significant because yfinance preserves it in its output columns.
     symbols = tickers if isinstance(tickers, str) else tuple(tickers)
     # Injected downloaders/providers must never share one another's cached responses.
-    return (symbols, period, id(downloader), tuple(sorted((k, repr(v)) for k, v in kwargs.items())))
+    return (
+        symbols,
+        period,
+        id(downloader),
+        tuple(sorted((key, repr(value)) for key, value in kwargs.items())),
+    )
 
 
 def _evict(now: float) -> None:
@@ -90,6 +95,7 @@ def cached_download(
             pending = Future()
             _inflight[key] = pending
 
+    assert pending is not None
     if not is_owner:
         return pending.result().copy()
 
