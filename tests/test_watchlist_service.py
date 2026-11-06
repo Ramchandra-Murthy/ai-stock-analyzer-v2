@@ -170,7 +170,6 @@ def test_single_owner_migration_preserves_multi_asset_details(database_path):
             ),
         )
 
-    watchlists = __import__("services.watchlist_service", fromlist=["unused"])
     migrated = watchlists.list_watchlists("any-session")
     assert len(migrated) == 1
     record = watchlists.list_stock_records("any-session", migrated[0]["id"])[0]
