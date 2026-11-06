@@ -99,13 +99,12 @@ class ErosScanManager:
 
 
     def start_day_trader_scan(self, **kwargs: Any) -> str:
-        """Queue a Day-Trader opportunity scan and deduplicate identical active requests."""
+        """Queue one Day-Trader scan at a time; reuse the active job on repeat requests."""
         with self._lock:
             for existing_id, existing_job in self._jobs.items():
                 if (
                     existing_job.get("kind") == "day_trader"
                     and existing_job["status"] in {"queued", "running"}
-                    and existing_job["kwargs"] == kwargs
                 ):
                     return existing_id
 
