@@ -6,7 +6,6 @@ import pandas as pd
 import streamlit as st
 
 from api.main import _SCAN_MANAGER
-from scanner.day_trader_opportunity import scan_day_trader_opportunities
 from scanner.price_jump_history import append_price_jump_snapshot
 from scanner.price_jump_history_analytics import summarize_price_jump_history
 from components.disclaimer import show_disclaimer
@@ -267,22 +266,61 @@ scan_requested = st.button("Scan now", type="primary")
 auto_scan_requested = st.session_state.pop("intraday_auto_refresh_pending", False)
 
 if scan_requested or auto_scan_requested:
-    previous_results = st.session_state.get("day_trader_opportunities")
-    with st.spinner("Scanning the current NSE+BSE candidate universe…"):
-        results = scan_day_trader_opportunities(
-            limit=100,
-            exchange_category=exchange,
-            cap_category=cap_category,
-            max_price=price_limit,
-            lookback_minutes=lookback,
-            min_change_percent=min_change,
-            min_volume_surge=min_volume,
-            low_price_only=low_price_only,
+    day_trader_job_id = _SCAN_MANAGER.start_day_trader_scan(
+        limit=100,
+        exchange_category=exchange,
+        cap_category=cap_category,
+        max_price=price_limit,
+        lookback_minutes=lookback,
+        min_change_percent=min_change,
+        min_volume_surge=min_volume,
+        low_price_only=low_price_only,
+    )
+    st.session_state["day_trader_scan_job_id"] = day_trader_job_id
+    st.info("⏳ Day-Trader scan started in the background. The page remains responsive.")
+
+@st.fragment(run_every=5 if st.session_state.get("day_trader_scan_job_id") else None)
+def _day_trader_scan_status():
+    job_id = st.session_state.get("day_trader_scan_job_id")
+    if not job_id:
+        return
+    job = _SCAN_MANAGER.get_job(job_id)
+    if job is None:
+        st.session_state.pop("day_trader_scan_job_id", None)
+        st.error("Background Day-Trader scan was lost. Please run the scan again.")
+    elif job["status"] in {"queued", "running"}:
+        st.info(
+            "⏳ Day-Trader scan is running in the background. "
+            "Results will appear automatically."
         )
+    elif job["status"] == "failed":
+        st.session_state.pop("day_trader_scan_job_id", None)
+        st.error(job.get("error") or "Day-Trader scan failed.")
+    elif job["status"] == "completed":
+        st.session_state["day_trader_scan_completed"] = {
+            "results": job.get("results", []),
+            "scan_stats": job.get("scan_stats", {}),
+            "finished_at": job.get("finished_at"),
+        }
+        st.session_state.pop("day_trader_scan_job_id", None)
+        st.rerun()
+
+
+_day_trader_scan_status()
+
+completed_scan = st.session_state.pop("day_trader_scan_completed", None)
+if completed_scan is not None:
+    previous_results = st.session_state.get("day_trader_opportunities")
+    results = pd.DataFrame(completed_scan.get("results", []))
+    results.attrs["scan_stats"] = dict(completed_scan.get("scan_stats", {}))
     scan_stats = results.attrs.get("scan_stats", {}) if results is not None else {}
     st.session_state["intraday_scan_stats"] = scan_stats
     results = results.head(limit).reset_index(drop=True)
-    scan_at = pd.Timestamp.now(tz="Asia/Kolkata")
+    scan_at = (
+        pd.Timestamp(completed_scan["finished_at"]).tz_convert("Asia/Kolkata")
+        if completed_scan.get("finished_at")
+        else pd.Timestamp.now(tz="Asia/Kolkata")
+    )
     st.session_state["intraday_market_regime"] = classify_scan_regime(results)
     snapshot_history = st.session_state.get("intraday_scan_snapshots", [])
     st.session_state["intraday_scan_snapshots"] = record_scan_snapshot(

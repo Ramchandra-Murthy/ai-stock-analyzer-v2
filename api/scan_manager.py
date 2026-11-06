@@ -11,6 +11,7 @@ from uuid import uuid4
 import pandas as pd
 
 from api.scan_history import save_completed_scan
+from scanner.day_trader_opportunity import scan_day_trader_opportunities
 from scanner.price_jump import scan_price_jumps
 
 
@@ -95,6 +96,78 @@ class ErosScanManager:
         with self._lock:
             job = self._jobs.get(job_id)
             return dict(job) if job is not None else None
+
+    def start_day_trader_scan(self, **kwargs: Any) -> str:
+        """Queue one Day-Trader scan at a time; reuse the active job on repeat requests."""
+        with self._lock:
+            for existing_id, existing_job in self._jobs.items():
+                if existing_job.get("kind") == "day_trader" and existing_job["status"] in {
+                    "queued",
+                    "running",
+                }:
+                    return existing_id
+
+            if len(self._jobs) >= self._max_jobs:
+                terminal_job_id = next(
+                    (
+                        existing_id
+                        for existing_id, existing_job in self._jobs.items()
+                        if existing_job["status"] in {"completed", "failed"}
+                    ),
+                    None,
+                )
+                if terminal_job_id is not None:
+                    del self._jobs[terminal_job_id]
+
+            job_id = uuid4().hex
+            self._jobs[job_id] = {
+                "job_id": job_id,
+                "kind": "day_trader",
+                "status": "queued",
+                "started_at": None,
+                "finished_at": None,
+                "count": 0,
+                "results": [],
+                "scan_stats": {},
+                "error": None,
+                "kwargs": dict(kwargs),
+            }
+
+        self._executor.submit(self._run_day_trader_scan, job_id, dict(kwargs))
+        return job_id
+
+    def _run_day_trader_scan(self, job_id: str, kwargs: dict[str, Any]) -> None:
+        """Execute the Day-Trader scan without touching Streamlit session state."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+            job["status"] = "running"
+            job["started_at"] = datetime.now(UTC).isoformat()
+        try:
+            frame = scan_day_trader_opportunities(**kwargs)
+            results = _records(frame)
+            stats = _stats(frame)
+            with self._lock:
+                job = self._jobs.get(job_id)
+                if job is None:
+                    return
+                job.update(
+                    status="completed",
+                    finished_at=datetime.now(UTC).isoformat(),
+                    count=len(results),
+                    results=results,
+                    scan_stats=stats,
+                )
+        except Exception as exc:
+            with self._lock:
+                job = self._jobs.get(job_id)
+                if job is not None:
+                    job.update(
+                        status="failed",
+                        finished_at=datetime.now(UTC).isoformat(),
+                        error=f"Day-Trader scan failed ({type(exc).__name__}).",
+                    )
 
     def _run_price_jump_scan(self, job_id: str, kwargs: dict[str, Any]) -> None:
         started = datetime.now(UTC).isoformat()
