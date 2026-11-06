@@ -1,5 +1,9 @@
 """Tests for the shared download cache (no network: the downloader is injected)."""
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event, Lock
+from time import sleep
+
 import pandas as pd
 import pytest
 
@@ -96,9 +100,9 @@ def test_mutating_a_returned_frame_does_not_corrupt_the_cache() -> None:
     dl, clock = FakeDownloader(), Clock()
 
     fresh = cd.cached_download("X.NS", period="1y", downloader=dl, clock=clock)
-    fresh.loc[0, "Close"] = 999.0  # mutate the frame returned by the downloading call
+    fresh.loc[0, "Close"] = 999.0
     hit = cd.cached_download("X.NS", period="1y", downloader=dl, clock=clock)
-    hit.loc[1, "Close"] = 888.0  # and the one served from the cache
+    hit.loc[1, "Close"] = 888.0
     again = cd.cached_download("X.NS", period="1y", downloader=dl, clock=clock)
 
     assert len(dl.calls) == 1
@@ -150,7 +154,6 @@ def test_cache_is_size_bounded_and_evicts_oldest(monkeypatch) -> None:
         cd.cached_download(f"T{i}", period="1y", downloader=dl, clock=clock)
 
     assert cd.cache_size() <= 5
-    # the newest entries survive; the oldest were evicted and would be fetched again
     before = len(dl.calls)
     cd.cached_download("T11", period="1y", downloader=dl, clock=clock)
     assert len(dl.calls) == before
@@ -166,3 +169,51 @@ def test_expired_entries_are_removed_on_write() -> None:
     cd.cached_download("NEW", period="1y", ttl=10, downloader=dl, clock=clock)
 
     assert cd.cache_size() == 1
+
+
+def test_identical_concurrent_calls_share_one_download() -> None:
+    entered = Event()
+    release = Event()
+    calls_lock = Lock()
+    calls = 0
+
+    def slow_downloader(tickers, **kwargs):
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+        entered.set()
+        assert release.wait(timeout=5)
+        return pd.DataFrame({"Close": [101.0]})
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [
+            pool.submit(cd.cached_download, "X.NS", period="1d", downloader=slow_downloader)
+            for _ in range(8)
+        ]
+        assert entered.wait(timeout=5)
+        sleep(0.05)
+        release.set()
+        results = [future.result(timeout=5) for future in futures]
+
+    assert calls == 1
+    assert all(result["Close"].tolist() == [101.0] for result in results)
+
+
+def test_injected_downloaders_do_not_share_cache_entries() -> None:
+    first, second = FakeDownloader(), FakeDownloader()
+
+    cd.cached_download("X.NS", period="1d", downloader=first)
+    cd.cached_download("X.NS", period="1d", downloader=second)
+
+    assert len(first.calls) == 1
+    assert len(second.calls) == 1
+
+
+def test_generator_tickers_are_materialized_once() -> None:
+    dl = FakeDownloader()
+    tickers = (symbol for symbol in ["A.NS", "B.NS"])
+
+    result = cd.cached_download(tickers, period="1d", downloader=dl)
+
+    assert not result.empty
+    assert dl.calls[0][0] == ["A.NS", "B.NS"]
