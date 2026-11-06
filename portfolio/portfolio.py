@@ -50,8 +50,12 @@ def load_portfolio():
     df = pd.read_sql("SELECT * FROM portfolio", conn)
 
     conn.close()
+    # The dashboard can be opened before the Portfolio page. Ensure the table
+    # exists here rather than relying on page-navigation order.
+    create_portfolio_table()
 
-    return df
+    with sqlite3.connect(DATABASE) as conn:
+        return pd.read_sql("SELECT * FROM portfolio", conn)
 
 
 def delete_stock(stock_id):

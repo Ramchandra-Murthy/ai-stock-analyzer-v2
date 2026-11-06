@@ -1,9 +1,11 @@
 import logging
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
-import yfinance as yf
 
+from ai_trading.momentum_scoring import score_momentum
 from engine.breakout_engine import detect_breakout
 from engine.signal_engine import generate_signal
 from indicators.atr import calculate_atr
@@ -18,9 +20,12 @@ from scanner.dynamic_universe import (
     merge_bse_universe,
     merge_nse_universe,
 )
+from services.cached_download import cached_download
+from services.data_quality import last_bar_date, split_stale
 from services.sector_mapping import sector_for_symbol
 
 logger = logging.getLogger(__name__)
+IST = ZoneInfo("Asia/Kolkata")
 
 TOP_CANDIDATES_TO_ANALYZE = 20
 DISPLAY_COUNT = 20
@@ -75,9 +80,10 @@ def _extract_history_frame(history: pd.DataFrame, ticker: str) -> pd.DataFrame:
 def _download_chunk(chunk: list[str]) -> pd.DataFrame:
     """Download a mover-screen chunk, retrying once without threading."""
     try:
-        history = yf.download(
+        history = cached_download(
             tickers=chunk,
             period="5d",
+            ttl=60,
             interval="1d",
             auto_adjust=True,
             progress=False,
@@ -96,9 +102,10 @@ def _download_chunk(chunk: list[str]) -> pd.DataFrame:
         )
 
     try:
-        history = yf.download(
+        history = cached_download(
             tickers=chunk,
             period="5d",
+            ttl=60,
             interval="1d",
             auto_adjust=True,
             progress=False,
@@ -120,9 +127,10 @@ def _download_chunk(chunk: list[str]) -> pd.DataFrame:
 def _download_analysis_chunk(chunk: list[str]) -> pd.DataFrame:
     """Download the full history for shortlisted tickers in one batch."""
     try:
-        history = yf.download(
+        history = cached_download(
             tickers=chunk,
             period=ANALYSIS_PERIOD,
+            ttl=900,
             interval="1d",
             auto_adjust=True,
             progress=False,
@@ -141,9 +149,10 @@ def _download_analysis_chunk(chunk: list[str]) -> pd.DataFrame:
         )
 
     try:
-        history = yf.download(
+        history = cached_download(
             tickers=chunk,
             period=ANALYSIS_PERIOD,
+            ttl=900,
             interval="1d",
             auto_adjust=True,
             progress=False,
@@ -167,6 +176,7 @@ def _batch_change_screen(
 ) -> list[tuple[str, str, float, float]]:
     """Find price movers across the current NSE and BSE universes without a liquidity exclusion."""
     ranked: list[tuple[str, str, float, float]] = []
+    series_by_ticker: dict[str, tuple[str, pd.Series, pd.Series]] = {}
 
     for exchange, symbols in candidates.items():
         tickers = [_ticker(symbol, exchange) for symbol in symbols]
@@ -180,23 +190,98 @@ def _batch_change_screen(
                 try:
                     close = _extract_series(history, ticker, "Close")
                     volume = _extract_series(history, ticker, "Volume")
-                    if len(close) < 2 or volume.empty:
-                        continue
-
-                    latest = float(close.iloc[-1])
-                    previous = float(close.iloc[-2])
-                    average_volume = float(volume.tail(5).mean())
-                    if previous == 0:
-                        continue
-
-                    change_pct = ((latest - previous) / previous) * 100
-                    average_turnover = latest * average_volume
-                    ranked.append((ticker, exchange, change_pct, average_turnover))
                 except (KeyError, TypeError, ValueError, IndexError):
                     continue
+                if len(close) < 2 or volume.empty:
+                    continue
+                series_by_ticker[ticker] = (exchange, close, volume)
+
+    # A halted or suspended name keeps an old last bar. Rank only tickers on the most
+    # recent session seen across the whole universe so stale moves are not shown as current.
+    reference, stale = split_stale(
+        {ticker: last_bar_date(close) for ticker, (_ex, close, _vol) in series_by_ticker.items()},
+        today=datetime.now(IST).date(),
+    )
+    if stale:
+        logger.warning(
+            "Excluded %d of %d tickers whose last bar is not the latest session (%s); first: %s",
+            len(stale),
+            len(series_by_ticker),
+            reference,
+            ", ".join(stale[:5]),
+        )
+    stale_set = set(stale)
+
+    for ticker, (exchange, close, volume) in series_by_ticker.items():
+        if ticker in stale_set:
+            continue
+        try:
+            latest = float(close.iloc[-1])
+            previous = float(close.iloc[-2])
+            average_volume = float(volume.tail(5).mean())
+            if previous == 0:
+                continue
+
+            change_pct = ((latest - previous) / previous) * 100
+            average_turnover = latest * average_volume
+            ranked.append((ticker, exchange, change_pct, average_turnover))
+        except (TypeError, ValueError, IndexError):
+            continue
 
     ranked.sort(key=lambda row: abs(row[2]), reverse=True)
     return ranked
+
+
+def _momentum_components(df: pd.DataFrame) -> dict[str, float | None]:
+    """Convert recent OHLCV context into bounded, explainable momentum components."""
+    if len(df) < 21:
+        return {
+            "trend": None,
+            "relative_strength": None,
+            "volume_expansion": None,
+            "breakout_quality": None,
+        }
+
+    last = df.iloc[-1]
+    close = float(last["Close"])
+    close_series = pd.to_numeric(df["Close"], errors="coerce")
+    sma20_series = (
+        pd.to_numeric(df["SMA_20"], errors="coerce")
+        if "SMA_20" in df
+        else close_series.rolling(20).mean()
+    )
+    sma50_series = (
+        pd.to_numeric(df["SMA_50"], errors="coerce")
+        if "SMA_50" in df
+        else close_series.rolling(50).mean()
+    )
+    sma20 = float(sma20_series.iloc[-1])
+    sma50 = float(sma50_series.iloc[-1])
+    prior_close = float(close_series.iloc[-21])
+    average_volume = float(pd.to_numeric(df["Volume"], errors="coerce").iloc[-21:-1].mean())
+    latest_volume = float(last["Volume"])
+    high_20 = float(df["High"].tail(20).max())
+
+    trend_score = (
+        100.0
+        if close >= sma20 and close >= sma50
+        else 50.0 if close >= sma20 or close >= sma50 else 0.0
+    )
+    return_pct = ((close / prior_close) - 1.0) * 100 if prior_close > 0 else 0.0
+    relative_strength_score = max(0.0, min(100.0, (return_pct + 10.0) * 5.0))
+    volume_ratio = latest_volume / average_volume if average_volume > 0 else None
+    volume_score = (
+        max(0.0, min(100.0, (volume_ratio - 0.5) * (100.0 / 1.5)))
+        if volume_ratio is not None
+        else None
+    )
+    breakout_score = max(0.0, min(100.0, (close / high_20) * 100.0)) if high_20 > 0 else None
+    return {
+        "trend": trend_score,
+        "relative_strength": relative_strength_score,
+        "volume_expansion": volume_score,
+        "breakout_quality": breakout_score,
+    }
 
 
 def _analyze_history(
@@ -210,6 +295,9 @@ def _analyze_history(
         return None
 
     try:
+        # Capture the last bar's date before the index is dropped so every row says which
+        # session its price comes from (None when the frame has no date index).
+        as_of = last_bar_date(df)
         df = df.reset_index(drop=True)
         df = calculate_sma(df, 20)
         df = calculate_sma(df, 50)
@@ -229,6 +317,7 @@ def _analyze_history(
             return None
 
         last = df.iloc[-1]
+        momentum = score_momentum(_momentum_components(df))
         exchange = "BSE" if ticker.endswith(".BO") else "NSE"
         symbol = ticker.removesuffix(".NS").removesuffix(".BO")
         return {
@@ -236,6 +325,7 @@ def _analyze_history(
             "Exchange": exchange,
             "Sector": sector_for_symbol(symbol),
             "Price": round(float(last["Close"]), 2),
+            "Data As Of": as_of.isoformat() if as_of is not None else None,
             "Avg Turnover (₹)": (
                 round(average_turnover, 0) if average_turnover is not None else None
             ),
@@ -244,6 +334,8 @@ def _analyze_history(
             "MACD": round(float(last["MACD"]), 2),
             "ATR": round(float(last["ATR"]), 2),
             "AI Score": signal["Score"],
+            "Momentum Score": momentum.score,
+            "Momentum Explanation": momentum.explanation,
             "Confidence": signal["Confidence"],
             "Risk": signal.get("Risk", "Medium"),
             "Recommendation": signal["Recommendation"],

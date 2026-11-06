@@ -48,3 +48,4 @@ def test_market_scanner_preserves_signal_confidence() -> None:
     assert row is not None
     assert row["AI Score"] == 45
     assert row["Confidence"] == 55.0
+    assert row["Recommendation"] == "HOLD"

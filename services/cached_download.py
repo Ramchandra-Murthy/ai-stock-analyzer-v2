@@ -1,14 +1,8 @@
-"""Short-lived, thread-safe cache around ``yfinance.download``.
+"""Short-lived, thread-safe cache around the Yahoo Finance downloader.
 
-Streamlit pages re-run top to bottom on every interaction, and several pages downloaded the
-same history again each time (a multi-second network call). Results are reused for ``ttl``
-seconds. Rules that keep it safe:
-
-* failures (exceptions) are never cached, so a transient error is retried on the next call;
-* empty results are cached only very briefly, so a provider hiccup recovers quickly;
-* callers always get a copy, so mutating a frame cannot corrupt the cache;
-* the cache is size-bounded (oldest entries are evicted), so it cannot grow without limit;
-* ``yfinance`` is imported lazily, keeping module import cheap.
+Concurrent callers for the same request share one in-flight download (single-flight).
+Failures are propagated to all waiters but are never cached. Empty results have a short
+TTL, returned frames are copied, and the completed cache is size-bounded.
 """
 
 from __future__ import annotations
@@ -16,6 +10,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable, Iterable
+from concurrent.futures import Future
 from typing import Any
 
 import pandas as pd
@@ -26,11 +21,12 @@ MAX_ENTRIES = 64
 
 _Key = tuple[Any, ...]
 _cache: dict[_Key, tuple[float, pd.DataFrame]] = {}
+_inflight: dict[_Key, Future[pd.DataFrame]] = {}
 _lock = threading.Lock()
 
 
 def clear_download_cache() -> None:
-    """Drop every cached download (for a manual refresh and for tests)."""
+    """Drop completed cache entries (in-flight requests are allowed to finish)."""
     with _lock:
         _cache.clear()
 
@@ -46,10 +42,29 @@ def _default_downloader(*args: Any, **kwargs: Any) -> pd.DataFrame:
     return yf.download(*args, **kwargs)
 
 
-def _make_key(tickers: str | Iterable[str], period: str, kwargs: dict[str, Any]) -> _Key:
+def _make_key(
+    tickers: str | Iterable[str],
+    period: str,
+    kwargs: dict[str, Any],
+    downloader: Callable[..., pd.DataFrame],
+) -> _Key:
     # Ticker order is part of the key: yfinance orders columns by it, and callers rely on that.
     symbols = tickers if isinstance(tickers, str) else tuple(tickers)
-    return (symbols, period, tuple(sorted((k, repr(v)) for k, v in kwargs.items())))
+    # Different provider/downloader implementations must not share cached responses.
+    return (
+        symbols,
+        period,
+        tuple(sorted((k, repr(v)) for k, v in kwargs.items())),
+        id(downloader),
+    # Ticker order is significant because yfinance preserves it in its output columns.
+    symbols = tickers if isinstance(tickers, str) else tuple(tickers)
+    # Injected downloaders/providers must never share one another's cached responses.
+    return (
+        symbols,
+        period,
+        id(downloader),
+        tuple(sorted((key, repr(value)) for key, value in kwargs.items())),
+    )
 
 
 def _evict(now: float) -> None:
@@ -75,8 +90,11 @@ def cached_download(
     if isinstance(tickers, str):
         request: Any = tickers
     else:
+        # Materialize iterables once: generators would otherwise be exhausted before keying.
         request = list(tickers)
-    key = _make_key(tickers, period, kwargs)
+
+    active_downloader = downloader or _default_downloader
+    key = _make_key(request, period, kwargs, active_downloader)
 
     now = clock()
     with _lock:
@@ -84,11 +102,41 @@ def cached_download(
     if entry is not None and entry[0] > now:
         return entry[1].copy()
 
-    frame = (downloader or _default_downloader)(request, period=period, **kwargs)
+    frame = active_downloader(request, period=period, **kwargs)
+    """Download once per identical concurrent request and reuse the result for the TTL."""
+    request: Any = tickers if isinstance(tickers, str) else list(tickers)
+    active_downloader = downloader or _default_downloader
+    key = _make_key(request, period, kwargs, active_downloader)
 
-    lifetime = EMPTY_TTL_SECONDS if frame is None or frame.empty else ttl
-    stored = pd.DataFrame() if frame is None else frame
     with _lock:
-        _cache[key] = (now + lifetime, stored.copy())
-        _evict(now)
-    return stored.copy()
+        now = clock()
+        entry = _cache.get(key)
+        if entry is not None and entry[0] > now:
+            return entry[1].copy()
+
+        pending = _inflight.get(key)
+        is_owner = pending is None
+        if is_owner:
+            pending = Future()
+            _inflight[key] = pending
+
+    assert pending is not None
+    if not is_owner:
+        return pending.result().copy()
+
+    try:
+        frame = active_downloader(request, period=period, **kwargs)
+        stored = pd.DataFrame() if frame is None else frame.copy()
+        lifetime = EMPTY_TTL_SECONDS if stored.empty else max(0.0, ttl)
+        with _lock:
+            completed_at = clock()
+            _cache[key] = (completed_at + lifetime, stored.copy())
+            _evict(completed_at)
+            _inflight.pop(key, None)
+        pending.set_result(stored.copy())
+        return stored.copy()
+    except BaseException as exc:
+        with _lock:
+            _inflight.pop(key, None)
+        pending.set_exception(exc)
+        raise
