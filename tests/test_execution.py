@@ -92,9 +92,7 @@ def test_bad_inputs_raise(call):
         ([1], [100.0], [100.0], {"adv": float("inf")}),
     ],
 )
-def test_execution_rejects_non_finite_or_inconsistent_inputs(
-    schedule, prices, volumes, kwargs
-):
+def test_execution_rejects_non_finite_or_inconsistent_inputs(schedule, prices, volumes, kwargs):
     params = {"adv": 1_000_000.0, "daily_vol": 0.02, **kwargs}
     with pytest.raises(ValueError):
         simulate_execution("buy", schedule, prices, volumes, **params)
