@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pandas as pd
 
@@ -62,7 +62,7 @@ def test_duplicate_timestamps_are_rejected() -> None:
 
 def test_data_status_reports_source_retrieval_and_last_bar() -> None:
     frame, errors = validate_ohlcv_frame(_valid_frame())
-    retrieved = datetime(2026, 10, 30, 10, 0, tzinfo=timezone.utc)
+    retrieved = datetime(2026, 10, 30, 10, 0, tzinfo=UTC)
     status = build_data_status(frame, source="Yahoo Finance", retrieved_at=retrieved, errors=errors)
     assert status["source"] == "Yahoo Finance"
     assert status["retrieved_at"] == retrieved.isoformat()
