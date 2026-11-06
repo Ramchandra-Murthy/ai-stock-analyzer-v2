@@ -81,6 +81,31 @@ def test_ticker_list_order_is_preserved_and_part_of_the_key() -> None:
     assert dl.calls[0][0] == ["A", "B"] and dl.calls[1][0] == ["B", "A"]
 
 
+def test_generator_tickers_are_materialized_before_cache_keying() -> None:
+    dl, clock = FakeDownloader(), Clock()
+
+    cd.cached_download((ticker for ticker in ["A", "B"]), period="1y", downloader=dl, clock=clock)
+    cd.cached_download((ticker for ticker in ["A", "B"]), period="1y", downloader=dl, clock=clock)
+    cd.cached_download((ticker for ticker in ["C", "D"]), period="1y", downloader=dl, clock=clock)
+
+    assert len(dl.calls) == 2
+    assert dl.calls[0][0] == ["A", "B"]
+    assert dl.calls[1][0] == ["C", "D"]
+
+
+def test_different_downloader_instances_do_not_share_cached_data() -> None:
+    clock = Clock()
+    first = FakeDownloader(pd.DataFrame({"Close": [1.0]}))
+    second = FakeDownloader(pd.DataFrame({"Close": [9.0]}))
+
+    result_first = cd.cached_download("X.NS", period="1y", downloader=first, clock=clock)
+    result_second = cd.cached_download("X.NS", period="1y", downloader=second, clock=clock)
+
+    assert result_first["Close"].tolist() == [1.0]
+    assert result_second["Close"].tolist() == [9.0]
+    assert len(first.calls) == len(second.calls) == 1
+
+
 def test_arguments_are_forwarded_to_the_downloader() -> None:
     dl = FakeDownloader()
 
