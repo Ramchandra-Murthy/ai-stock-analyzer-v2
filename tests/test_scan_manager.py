@@ -157,7 +157,7 @@ def test_identical_active_day_trader_scans_are_deduplicated() -> None:
         duplicate = manager.start_day_trader_scan(exchange_category="NSE", limit=100)
         different = manager.start_day_trader_scan(exchange_category="BSE", limit=100)
         assert duplicate == first
-        assert different != first
+        assert different == first  # changed controls must not queue a second universe scan
         release.set()
 
 
