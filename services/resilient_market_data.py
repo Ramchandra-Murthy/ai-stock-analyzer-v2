@@ -9,7 +9,7 @@ exchange-tick execution feed.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from time import sleep
 from typing import Any
 
@@ -211,7 +211,7 @@ def download_market_frames(
         recover_missing=recover_missing,
         diagnostics=diagnostics,
     )
-    retrieved_at = datetime.now(timezone.utc)
+    retrieved_at = datetime.now(UTC)
     data_status: dict[str, dict[str, Any]] = {}
     invalid: list[str] = []
     for ticker, frame in list(frames.items()):
