@@ -98,13 +98,16 @@ def start_price_jumps(
     jump_percent: float = Query(1.0, ge=0.0, le=100.0),
 ) -> dict[str, str]:
     """Start a non-blocking EROS price-jump scan."""
-    job_id = _SCAN_MANAGER.start_price_jump_scan(
-        limit=limit,
-        cap_category=cap_category,
-        exchange_category=exchange_category,
-        lookback_minutes=lookback_minutes,
-        jump_percent=jump_percent,
-    )
+    try:
+        job_id = _SCAN_MANAGER.start_price_jump_scan(
+            limit=limit,
+            cap_category=cap_category,
+            exchange_category=exchange_category,
+            lookback_minutes=lookback_minutes,
+            jump_percent=jump_percent,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"job_id": job_id, "status": "queued"}
 
 
