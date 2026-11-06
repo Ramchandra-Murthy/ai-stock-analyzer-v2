@@ -42,6 +42,18 @@ jobs:
         services/technical_score_service.py
         services/trade_plan_service.py
         services/ui_formatters.py
+        services/symbol_resolver.py
+        services/price_table.py
+        scanner/gainers.py
+        algorithmic_trading/lab_inputs.py
+        algorithmic_trading/concentration.py
+        algorithmic_trading/portfolio_advanced.py
+        algorithmic_trading/portfolio_tools.py
+        algorithmic_trading/risk_advanced.py
+        algorithmic_trading/execution.py
+        algorithmic_trading/attribution.py
+        algorithmic_trading/risk_guards.py
+        algorithmic_trading/ml_diagnostics.py
     - name: Test repaired contracts and market-data boundaries
       env:
         PYTHONPATH: ${{ github.workspace }}

@@ -51,7 +51,7 @@ def _min_variance_at_return(
     if not res.success:
         return None
     w = np.clip(res.x, 0.0, max_weight)
-    return w / w.sum()
+    return np.asarray(w / w.sum(), dtype=float)
 
 
 def efficient_frontier(

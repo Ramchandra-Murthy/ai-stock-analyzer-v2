@@ -51,7 +51,7 @@ def _solve(objective, n: int, max_weight: float, x0: np.ndarray | None = None) -
     if not res.success:
         raise ValueError(f"Optimiser did not converge: {res.message}")
     w = np.clip(res.x, 0.0, max_weight)
-    return w / w.sum()
+    return np.asarray(w / w.sum(), dtype=float)
 
 
 def min_variance(cov: pd.DataFrame, max_weight: float = 1.0) -> pd.Series:

@@ -66,13 +66,15 @@ def resolve_symbol(raw: str, default_exchange: str = NSE) -> ResolvedSymbol:
     if not _CODE.match(text):
         raise ValueError(f"'{text}' is not a valid NSE/BSE symbol.")
 
-    exchange = prefix_exchange or suffix_exchange
-    if exchange is None:
+    chosen: str = (
+        prefix_exchange
+        or suffix_exchange
         # Only BSE uses six-digit scrip codes, so a bare code cannot be an NSE symbol.
-        exchange = BSE if _BSE_SCRIP.match(text) else default
-    if exchange == NSE and _BSE_SCRIP.match(text):
+        or (BSE if _BSE_SCRIP.match(text) else default)
+    )
+    if chosen == NSE and _BSE_SCRIP.match(text):
         raise ValueError(f"{text} looks like a BSE scrip code, not an NSE symbol.")
-    return ResolvedSymbol(ticker=f"{text}{SUFFIX[exchange]}", exchange=exchange, code=text)
+    return ResolvedSymbol(ticker=f"{text}{SUFFIX[chosen]}", exchange=chosen, code=text)
 
 
 def resolve_many(raw: str, default_exchange: str = NSE) -> tuple[list[ResolvedSymbol], list[str]]:

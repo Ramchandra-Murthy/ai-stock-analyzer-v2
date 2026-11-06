@@ -33,7 +33,7 @@ def _apportion(total: int, weights: np.ndarray) -> np.ndarray:
     base = np.floor(exact).astype(int)
     order = np.argsort(-(exact - base), kind="stable")
     base[order[: total - int(base.sum())]] += 1
-    return base
+    return np.asarray(base, dtype=int)
 
 
 def u_shaped_profile(slices: int) -> np.ndarray:
@@ -42,7 +42,7 @@ def u_shaped_profile(slices: int) -> np.ndarray:
         raise ValueError("slices must be at least 1.")
     x = np.linspace(-1.0, 1.0, slices)
     profile = 1.0 + 1.5 * x**2
-    return profile / profile.sum()
+    return np.asarray(profile / profile.sum(), dtype=float)
 
 
 def twap_schedule(shares: int, slices: int) -> np.ndarray:
