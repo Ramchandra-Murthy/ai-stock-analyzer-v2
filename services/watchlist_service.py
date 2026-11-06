@@ -132,11 +132,11 @@ def _connect() -> sqlite3.Connection:
                 INSERT OR IGNORE INTO watchlist_symbols (
                     watchlist_id, symbol, position, created_at, entry_price, stop_loss,
                     target_price, quantity, investment_type, purchase_date, notes, status,
-                    updated_at
+                    updated_at, asset_category, asset_details
                 )
                 SELECT ?, symbol, position, created_at, entry_price, stop_loss,
                        target_price, quantity, investment_type, purchase_date, notes, status,
-                       updated_at
+                       updated_at, asset_category, asset_details
                 FROM watchlist_symbols WHERE watchlist_id = ?
                 """,
                 (target_id, old_id),
