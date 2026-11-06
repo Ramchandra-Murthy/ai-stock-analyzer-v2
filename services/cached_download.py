@@ -48,32 +48,24 @@ def _make_key(
     kwargs: dict[str, Any],
     downloader: Callable[..., pd.DataFrame],
 ) -> _Key:
-    # Ticker order is part of the key: yfinance orders columns by it, and callers rely on that.
+    """Build a cache key that preserves ticker order and downloader identity."""
     symbols = tickers if isinstance(tickers, str) else tuple(tickers)
-    # Different provider/downloader implementations must not share cached responses.
     return (
         symbols,
         period,
-        tuple(sorted((k, repr(v)) for k, v in kwargs.items())),
-        id(downloader),
-    # Ticker order is significant because yfinance preserves it in its output columns.
-    symbols = tickers if isinstance(tickers, str) else tuple(tickers)
-    # Injected downloaders/providers must never share one another's cached responses.
-    return (
-        symbols,
-        period,
-        id(downloader),
         tuple(sorted((key, repr(value)) for key, value in kwargs.items())),
+        id(downloader),
     )
 
 
 def _evict(now: float) -> None:
     """Remove expired entries, then the oldest ones until the cache is within bounds."""
-    for key in [k for k, (expires, _) in _cache.items() if expires <= now]:
+    for key in [key for key, (expires, _) in _cache.items() if expires <= now]:
         del _cache[key]
     overflow = len(_cache) - MAX_ENTRIES
     if overflow > 0:
-        for key in sorted(_cache, key=lambda k: _cache[k][0])[:overflow]:
+        oldest = sorted(_cache, key=lambda key: _cache[key][0])[:overflow]
+        for key in oldest:
             del _cache[key]
 
 
@@ -86,25 +78,13 @@ def cached_download(
     clock: Callable[[], float] = time.monotonic,
     **kwargs: Any,
 ) -> pd.DataFrame:
-    """``yfinance.download(tickers, period=period, **kwargs)`` reused for ``ttl`` seconds."""
+    """Run or reuse the Yahoo Finance download for the requested ticker set."""
     if isinstance(tickers, str):
         request: Any = tickers
     else:
         # Materialize iterables once: generators would otherwise be exhausted before keying.
         request = list(tickers)
 
-    active_downloader = downloader or _default_downloader
-    key = _make_key(request, period, kwargs, active_downloader)
-
-    now = clock()
-    with _lock:
-        entry = _cache.get(key)
-    if entry is not None and entry[0] > now:
-        return entry[1].copy()
-
-    frame = active_downloader(request, period=period, **kwargs)
-    """Download once per identical concurrent request and reuse the result for the TTL."""
-    request: Any = tickers if isinstance(tickers, str) else list(tickers)
     active_downloader = downloader or _default_downloader
     key = _make_key(request, period, kwargs, active_downloader)
 
