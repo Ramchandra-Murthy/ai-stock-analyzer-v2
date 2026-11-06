@@ -22,6 +22,7 @@ DEFAULT_RETRIES = 2
 DEFAULT_TIMEOUT = 12.0
 RETRY_BACKOFF_SECONDS = 1.0
 
+
 def _configure_yfinance() -> None:
     """Enable yfinance's built-in transient-network retry support when available."""
     try:
