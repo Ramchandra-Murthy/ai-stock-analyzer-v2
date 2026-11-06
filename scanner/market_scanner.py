@@ -4,7 +4,6 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-from services.cached_download import cached_download
 
 from ai_trading.momentum_scoring import score_momentum
 from engine.breakout_engine import detect_breakout
@@ -21,6 +20,7 @@ from scanner.dynamic_universe import (
     merge_bse_universe,
     merge_nse_universe,
 )
+from services.cached_download import cached_download
 from services.data_quality import last_bar_date, split_stale
 from services.sector_mapping import sector_for_symbol
 
