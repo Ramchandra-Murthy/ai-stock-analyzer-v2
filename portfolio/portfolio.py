@@ -34,13 +34,12 @@ def add_stock(symbol, quantity, buy_price):
 
 
 def load_portfolio():
-    conn = sqlite3.connect(DATABASE)
+    # The dashboard can be opened before the Portfolio page. Ensure the table
+    # exists here rather than relying on page-navigation order.
+    create_portfolio_table()
 
-    df = pd.read_sql("SELECT * FROM portfolio", conn)
-
-    conn.close()
-
-    return df
+    with sqlite3.connect(DATABASE) as conn:
+        return pd.read_sql("SELECT * FROM portfolio", conn)
 
 
 def delete_stock(stock_id):
