@@ -83,3 +83,15 @@ def test_compare_and_signal_helpers():
 def test_invalid_config_rejected(bad):
     with pytest.raises(ValueError):
         simulate_with_guards(_px([100] * 40), _always_on(), GuardConfig(**bad))
+
+
+def test_close_derived_signal_enters_on_the_following_bar():
+    close = _px([100, 110, 121, 133.1])
+    signal = pd.Series(True, index=IDX)
+
+    result = simulate_with_guards(close, signal, GuardConfig(cost_bps=0))
+
+    assert result.trades.iloc[0]["entry"] == IDX[1]
+    assert result.equity.iloc[0] == pytest.approx(1.0)
+    assert result.equity.iloc[1] == pytest.approx(1.0)
+    assert result.equity.iloc[2] == pytest.approx(1.1)
