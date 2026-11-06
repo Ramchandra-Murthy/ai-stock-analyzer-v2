@@ -724,7 +724,7 @@ def test_repeated_failures_escalate_to_an_error_and_keep_retrying_slowly(
 
     _render_poll(fake_st)
     assert any("LIVE DATA UNAVAILABLE" in text for text in fake_st.kinds("error"))
-    # With 10s UI polls, 15s/30s backoff is observed on the next poll: ~0s, 20s, 40s.
+    # With 10s UI polls, 15s/30s backoff is observed on the next poll: ~0s, 20s, 50s.
     assert len(calls) == 3
 
 
