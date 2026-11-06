@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from algorithmic_trading.ml_diagnostics import diagnose_model
 from algorithmic_trading.ml_signals import MODELS, run_ml_strategy
 from algorithmic_trading.strategy_lab import normalise_price_frame
 from algorithmic_trading.trading_costs import india_cost_model
@@ -79,3 +80,33 @@ if st.button("Run walk-forward ML", type="primary"):
     )
     st.markdown("**Feature influence** (descriptive, from the last window only)")
     st.bar_chart(res.importances)
+
+st.divider()
+st.markdown("### Model diagnostics: is the signal real?")
+st.caption(
+    "Tunes hyper-parameters on the early part of the history with time-series cross-validation, "
+    "then judges once on the later, untouched part. Compare train and test accuracy: a large gap "
+    "means the model memorised the past."
+)
+if st.button("Run diagnostics"):
+    raw_d = _load(f"{symbol}.NS", period)
+    if raw_d is None:
+        st.error(f"No data returned for {symbol}.")
+        st.stop()
+    try:
+        with st.spinner("Cross-validating..."):
+            diag = diagnose_model(raw_d, model=model, horizon=int(horizon))
+    except ValueError as exc:
+        st.error(str(exc))
+        st.stop()
+    d1, d2, d3 = st.columns(3)
+    d1.metric("Train accuracy", f"{diag.train_accuracy:.1%}")
+    d2.metric(
+        "Unseen-data accuracy", f"{diag.test_accuracy:.1%}", f"base rate {diag.base_rate:.1%}"
+    )
+    d3.metric("Rows (train / test)", f"{diag.train_rows} / {diag.test_rows}")
+    st.info(diag.verdict)
+    st.markdown(f"**Best parameters:** {diag.best_params}")
+    st.dataframe(diag.grid.round(4), use_container_width=True)
+    st.markdown("**Out-of-sample feature importance** (accuracy lost when a feature is shuffled)")
+    st.bar_chart(diag.importances["importance"])
