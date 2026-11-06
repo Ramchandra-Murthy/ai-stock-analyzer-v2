@@ -22,7 +22,7 @@ from services.resilient_market_data import download_symbol_frames, download_symb
 logger = logging.getLogger(__name__)
 
 TOP10_REFRESH_SECONDS = 60
-TOP10_UI_POLL_SECONDS = 2
+TOP10_UI_POLL_SECONDS = 10
 TOP10_CACHE_SECONDS = 50
 TOP10_TIMEZONE = "Asia/Kolkata"
 TOP10_CHUNK_SIZE = 10
