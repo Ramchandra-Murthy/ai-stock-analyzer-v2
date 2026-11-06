@@ -283,3 +283,36 @@ def test_day_trade_plan_state_invalidated():
         },
     )
     assert state == "INVALIDATED"
+
+
+def test_day_trader_chunk_uses_shared_market_data_boundary(monkeypatch):
+    from scanner import day_trader_opportunity as scanner
+
+    calls = []
+    expected = {"AAA.NS": pd.DataFrame({"Close": [100.0]})}
+    diagnostics = {"missing": ["BBB.NS"]}
+
+    def fake_download(tickers, **kwargs):
+        calls.append((tickers, kwargs))
+        return expected, diagnostics
+
+    monkeypatch.setattr(scanner, "download_market_frames", fake_download)
+
+    frames, result = scanner._download_chunk_frames(["AAA.NS", "BBB.NS"], "5m")
+
+    assert frames == expected
+    assert result == diagnostics
+    assert calls == [
+        (
+            ["AAA.NS", "BBB.NS"],
+            {
+                "period": "1d",
+                "interval": "5m",
+                "auto_adjust": False,
+                "batch_size": scanner.CHUNK_SIZE,
+                "timeout": 10,
+                "retries": 0,
+                "recover_missing": False,
+            },
+        )
+    ]
