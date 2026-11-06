@@ -105,7 +105,9 @@ def simulate_with_guards(close: pd.Series, signal: pd.Series, config: GuardConfi
             killed_on = date
             if in_pos:
                 close_trade(date, "kill switch")
-        wants = bool(sig.iloc[i])
+        # Signals are calculated from the prior completed close; execute no earlier than
+        # the following bar to avoid using close[i] both to form and fill the signal.
+        wants = bool(sig.iloc[i - 1]) if i > 0 else False
         if not wants:
             blocked = False
             if in_pos:
