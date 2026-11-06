@@ -177,3 +177,76 @@ def test_day_trader_scan_failure_is_reported_without_provider_details() -> None:
     assert job["status"] == "failed"
     assert job["error"] == "Day-Trader scan failed (RuntimeError)."
     assert "secret" not in job["error"]
+
+
+def test_price_jump_queue_rejects_new_work_when_all_slots_are_active() -> None:
+    started = Event()
+    release = Event()
+
+    def scan(**_kwargs: object) -> pd.DataFrame:
+        started.set()
+        release.wait(timeout=5)
+        return pd.DataFrame()
+
+    manager = ErosScanManager(max_workers=1, max_jobs=1)
+    with patch("api.scan_manager.scan_price_jumps", side_effect=scan):
+        job_id = manager.start_price_jump_scan(lookback_minutes=5)
+        assert started.wait(timeout=2)
+
+        with pytest.raises(RuntimeError, match="Scan queue is full"):
+            manager.start_price_jump_scan(lookback_minutes=10)
+
+        release.set()
+        for _ in range(100):
+            job = manager.get_job(job_id)
+            if job and job["status"] == "completed":
+                break
+            time.sleep(0.01)
+
+
+def test_price_jump_deduplication_does_not_match_day_trader_job() -> None:
+    started = Event()
+    release = Event()
+
+    def scan(**_kwargs: object) -> pd.DataFrame:
+        started.set()
+        release.wait(timeout=5)
+        return pd.DataFrame()
+
+    manager = ErosScanManager(max_workers=1)
+    with (
+        patch("api.scan_manager.scan_day_trader_opportunities", side_effect=scan),
+        patch("api.scan_manager.scan_price_jumps", return_value=pd.DataFrame()),
+    ):
+        day_trader_id = manager.start_day_trader_scan(exchange_category="NSE", limit=20)
+        assert started.wait(timeout=2)
+
+        price_jump_id = manager.start_price_jump_scan(exchange_category="NSE", limit=20)
+
+        assert price_jump_id != day_trader_id
+        assert manager.get_job(price_jump_id)["kind"] == "price_jump"
+        release.set()
+        for _ in range(100):
+            job = manager.get_job(price_jump_id)
+            if job and job["status"] == "completed":
+                break
+            time.sleep(0.01)
+
+
+def test_price_jump_failure_does_not_expose_provider_error_details() -> None:
+    manager = ErosScanManager(max_workers=1)
+    with patch(
+        "api.scan_manager.scan_price_jumps",
+        side_effect=RuntimeError("https://provider.invalid/?token=secret"),
+    ):
+        job_id = manager.start_price_jump_scan(exchange_category="NSE")
+        for _ in range(100):
+            job = manager.get_job(job_id)
+            if job and job["status"] == "failed":
+                break
+            time.sleep(0.01)
+
+    assert job is not None
+    assert job["status"] == "failed"
+    assert job["error"] == "Price-jump scan failed (RuntimeError)."
+    assert "secret" not in job["error"]
