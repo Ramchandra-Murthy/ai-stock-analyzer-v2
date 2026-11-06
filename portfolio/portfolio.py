@@ -47,8 +47,6 @@ def add_stock(symbol, quantity, buy_price):
 def load_portfolio():
     conn = _connect()
 
-    df = pd.read_sql("SELECT * FROM portfolio", conn)
-
     conn.close()
     # The dashboard can be opened before the Portfolio page. Ensure the table
     # exists here rather than relying on page-navigation order.
