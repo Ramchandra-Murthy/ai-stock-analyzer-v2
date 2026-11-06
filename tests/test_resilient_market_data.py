@@ -252,3 +252,20 @@ def test_batch_then_single_recovery_with_mocked_provider(monkeypatch) -> None:
 
     assert set(frames) == {"AAA.NS", "BBB.NS"}
     assert missing == ["CCC.NS"]
+
+
+def test_download_symbol_frames_forwards_retry_count_to_single_recovery(monkeypatch) -> None:
+    """Fallback requests must honour the caller's retry budget."""
+    _install_fake_ticker(monkeypatch, {})
+
+    frames, missing = market_data.download_symbol_frames(
+        ["AAA.NS"],
+        period="1d",
+        interval="1m",
+        retries=0,
+        recover_missing=True,
+    )
+
+    assert frames == {}
+    assert missing == ["AAA.NS"]
+    assert _FakeTicker.requests == ["AAA.NS"]

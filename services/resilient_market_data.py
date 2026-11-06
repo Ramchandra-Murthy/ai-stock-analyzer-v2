@@ -220,6 +220,7 @@ def download_symbol_frames(
                 interval=interval,
                 auto_adjust=auto_adjust,
                 timeout=timeout,
+                retries=retries,
                 diagnostics=diagnostics,
             )
             if not frame.empty:
