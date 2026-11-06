@@ -717,14 +717,14 @@ def test_repeated_failures_escalate_to_an_error_and_keep_retrying_slowly(
 ) -> None:
     calls = _scripted_scans(monkeypatch, [top10_live.Top10ScanError("down")] * 10)
 
-    for _ in range(40):  # 40 polls, 2s apart, i.e. 80s of an unavailable provider
+    for _ in range(8):  # 8 polls, 10s apart, i.e. 80s of an unavailable provider
         _render_poll(fake_st)
         executor.run_pending()
         clock.advance(seconds=top10_live.TOP10_UI_POLL_SECONDS)
 
     _render_poll(fake_st)
     assert any("LIVE DATA UNAVAILABLE" in text for text in fake_st.kinds("error"))
-    # 80s of outage: attempts at ~0s, 15s and 45s, never one per poll.
+    # With 10s UI polls, 15s/30s backoff is observed on the next poll: ~0s, 20s, 50s.
     assert len(calls) == 3
 
 
