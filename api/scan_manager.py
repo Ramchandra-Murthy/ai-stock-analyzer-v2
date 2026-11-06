@@ -42,15 +42,34 @@ class ErosScanManager:
         self._lock = Lock()
         self._active_price_jump_job: str | None = None
 
+    def _make_room(self) -> None:
+        """Evict terminal history or reject work when every retained job is active."""
+        while len(self._jobs) >= self._max_jobs:
+            terminal_job_id = next(
+                (
+                    job_id
+                    for job_id, job in self._jobs.items()
+                    if job["status"] in {"completed", "failed"}
+                ),
+                None,
+            )
+            if terminal_job_id is None:
+                raise RuntimeError("Scan queue is full; retry after an active scan finishes.")
+            del self._jobs[terminal_job_id]
+
     def _find_matching_price_jump_job(self, kwargs: dict[str, Any]) -> str | None:
         for job_id, job in self._jobs.items():
-            if job["status"] in {"queued", "running"} and job["kwargs"] == kwargs:
+            if (
+                job.get("kind", "price_jump") == "price_jump"
+                and job["status"] in {"queued", "running"}
+                and job["kwargs"] == kwargs
+            ):
                 return job_id
         return None
 
     def _next_queued_price_jump_job(self) -> str | None:
         for job_id, job in self._jobs.items():
-            if job["status"] == "queued":
+            if job.get("kind", "price_jump") == "price_jump" and job["status"] == "queued":
                 return job_id
         return None
 
@@ -62,20 +81,11 @@ class ErosScanManager:
             if matching_job_id is not None:
                 return matching_job_id
 
-            if len(self._jobs) >= self._max_jobs:
-                terminal_job_id = next(
-                    (
-                        existing_id
-                        for existing_id, existing_job in self._jobs.items()
-                        if existing_job["status"] in {"completed", "failed"}
-                    ),
-                    None,
-                )
-                if terminal_job_id is not None:
-                    del self._jobs[terminal_job_id]
+            self._make_room()
 
             self._jobs[job_id] = {
                 "job_id": job_id,
+                "kind": "price_jump",
                 "status": "queued",
                 "started_at": None,
                 "finished_at": None,
@@ -203,6 +213,6 @@ class ErosScanManager:
                 self._jobs[job_id].update(
                     status="failed",
                     finished_at=datetime.now(UTC).isoformat(),
-                    error=str(exc),
+                    error=f"Price-jump scan failed ({type(exc).__name__}).",
                 )
                 self._active_price_jump_job = self._next_queued_price_jump_job()
