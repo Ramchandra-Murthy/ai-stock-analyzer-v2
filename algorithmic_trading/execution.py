@@ -73,8 +73,9 @@ def pov_schedule(shares: int, volumes, participation: float) -> np.ndarray:
 
 def square_root_impact(shares: float, adv: float, daily_vol: float, k: float = 0.5) -> float:
     """Expected price impact as a fraction of price for trading ``shares``."""
-    if shares < 0 or adv <= 0 or daily_vol < 0 or k < 0:
-        raise ValueError("shares, volatility and k must be >= 0 and adv > 0.")
+    values = np.asarray([shares, adv, daily_vol, k], dtype=float)
+    if not np.isfinite(values).all() or shares < 0 or adv <= 0 or daily_vol < 0 or k < 0:
+        raise ValueError("shares, volatility and k must be finite and >= 0; adv must be > 0.")
     return float(k * daily_vol * np.sqrt(shares / adv))
 
 
@@ -113,11 +114,19 @@ def simulate_execution(
     vol = np.asarray(volumes, dtype=float)
     if not (len(q) == len(px) == len(vol)) or len(q) == 0:
         raise ValueError("schedule, prices and volumes must have the same non-zero length.")
-    if not np.all(np.isfinite(px)) or (px <= 0).any():
+    if not np.isfinite(q).all() or (q < 0).any() or not np.equal(q, np.floor(q)).all():
+        raise ValueError("schedule must contain finite, non-negative whole-share quantities.")
+    if not np.isfinite(px).all() or (px <= 0).any():
         raise ValueError("prices must be positive and finite.")
+    if not np.isfinite(vol).all() or (vol < 0).any():
+        raise ValueError("volumes must be finite and non-negative.")
+    if not np.isfinite(half_spread_bps) or half_spread_bps < 0:
+        raise ValueError("half_spread_bps must be finite and non-negative.")
     if q.sum() <= 0:
         raise ValueError("The schedule fills no shares.")
     arrival = float(px[0] if arrival_price is None else arrival_price)
+    if not np.isfinite(arrival) or arrival <= 0:
+        raise ValueError("arrival_price must be positive and finite.")
     impact = np.array([square_root_impact(x, adv, daily_vol, k) for x in q])
     spread = half_spread_bps / 10_000.0
     fill_px = px * (1.0 + sign * (impact + spread))
