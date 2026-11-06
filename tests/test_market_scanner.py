@@ -210,7 +210,6 @@ def test_momentum_components_are_unavailable_for_short_history() -> None:
     assert all(value is None for value in _momentum_components(frame).values())
 
 
-
 def test_mover_download_uses_shared_short_ttl_cache(monkeypatch) -> None:
     from scanner import market_scanner
 
