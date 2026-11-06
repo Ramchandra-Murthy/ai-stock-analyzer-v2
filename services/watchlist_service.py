@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import sqlite3
@@ -329,11 +330,30 @@ def _sqlite_add_symbol(
 def _validate_details(details: dict[str, Any]) -> None:
     for field in ("entry_price", "stop_loss", "target_price"):
         value = details.get(field)
-        if value is not None and value != "" and float(value) < 0:
-            raise WatchlistError(f"{field.replace('_', ' ').title()} cannot be negative.")
+        if value is None or value == "":
+            continue
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError) as exc:
+            raise WatchlistError(
+                f"{field.replace('_', ' ').title()} must be a finite non-negative number."
+            ) from exc
+        if not math.isfinite(numeric_value) or numeric_value < 0:
+            raise WatchlistError(
+                f"{field.replace('_', ' ').title()} must be a finite non-negative number."
+            )
     quantity = details.get("quantity")
-    if quantity is not None and quantity != "" and int(quantity) < 1:
-        raise WatchlistError("Quantity must be at least 1.")
+    if quantity is not None and quantity != "":
+        try:
+            numeric_quantity = float(quantity)
+        except (TypeError, ValueError) as exc:
+            raise WatchlistError("Quantity must be a positive whole number.") from exc
+        if (
+            not math.isfinite(numeric_quantity)
+            or numeric_quantity < 1
+            or not numeric_quantity.is_integer()
+        ):
+            raise WatchlistError("Quantity must be a positive whole number.")
     if details.get("asset_category") and details["asset_category"] not in {
         "Stocks / F&O",
         "Mutual Funds",
