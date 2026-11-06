@@ -1100,13 +1100,22 @@ def _render_live_top10_results() -> None:
 
     last_update = completed_at.strftime("%H:%M:%S") if completed_at is not None else "—"
     coverage_status = _coverage_status(valid_quotes)
-    previous_top10 = st.session_state.get("top10_live_previous_result")
-    annotated_top10, dropped_symbols = _annotate_watchlist_changes(top10, previous_top10)
-    annotated_top10 = _add_signal_strength(annotated_top10)
     signal_history = st.session_state.get(TOP10_SIGNAL_HISTORY_KEY, [])
-    annotated_top10 = _add_signal_history(annotated_top10, signal_history)
-    annotated_top10 = _add_signal_persistence(annotated_top10, signal_history)
-    annotated_top10 = _add_signal_confirmation(annotated_top10)
+    cached_generation = st.session_state.get("top10_derived_generation")
+    cached_derived = st.session_state.get("top10_derived_result")
+    if cached_generation == snapshot.generation and cached_derived is not None:
+        annotated_top10, dropped_symbols = cached_derived
+        annotated_top10 = annotated_top10.copy()
+        dropped_symbols = list(dropped_symbols)
+    else:
+        previous_top10 = st.session_state.get("top10_live_previous_result")
+        annotated_top10, dropped_symbols = _annotate_watchlist_changes(top10, previous_top10)
+        annotated_top10 = _add_signal_strength(annotated_top10)
+        annotated_top10 = _add_signal_history(annotated_top10, signal_history)
+        annotated_top10 = _add_signal_persistence(annotated_top10, signal_history)
+        annotated_top10 = _add_signal_confirmation(annotated_top10)
+        st.session_state["top10_derived_generation"] = snapshot.generation
+        st.session_state["top10_derived_result"] = (annotated_top10.copy(), list(dropped_symbols))
     data_is_fresh = (
         data_age_seconds is not None and 0 <= data_age_seconds < TOP10_STALE_DATA_SECONDS
     )
