@@ -133,9 +133,7 @@ def monitor_calibration_frames(
                 "average_probability_pct": round(metrics.average_probability * 100, 1),
                 "actual_positive_rate_pct": round(metrics.actual_positive_rate * 100, 1),
                 "calibration_gap_pct": round(metrics.calibration_gap * 100, 1),
-                "calibration_in_the_large_pct": round(
-                    metrics.calibration_in_the_large * 100, 1
-                ),
+                "calibration_in_the_large_pct": round(metrics.calibration_in_the_large * 100, 1),
                 "train_samples": metrics.train_samples,
                 "test_samples": metrics.test_samples,
             }
