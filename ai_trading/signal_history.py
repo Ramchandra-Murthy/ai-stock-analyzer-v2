@@ -31,19 +31,22 @@ class SignalRecord:
     adaptive_samples: int = 0
 
     @property
-    def return_pct(self) -> float | None:
-        """Return price change, signed by the recorded signal direction."""
+    def market_return_pct(self) -> float | None:
+        """Return the underlying asset price change, independent of signal direction."""
         entry_price = (
             self.adjusted_entry_price if self.adjusted_entry_price is not None else self.entry_price
         )
         if self.outcome_price is None or entry_price <= 0:
             return None
-        raw_return = (self.outcome_price / entry_price - 1.0) * 100.0
-        if self.signal == "SHORT":
-            return -raw_return
-        if self.signal == "NEUTRAL":
-            return 0.0
-        return raw_return
+        return (self.outcome_price / entry_price - 1.0) * 100.0
+
+    @property
+    def return_pct(self) -> float | None:
+        """Return the directional strategy result; neutral signals are not trades."""
+        market_return = self.market_return_pct
+        if market_return is None or self.signal == "NEUTRAL":
+            return None
+        return -market_return if self.signal == "SHORT" else market_return
 
 
 def record_signal(
@@ -136,6 +139,7 @@ def attach_outcomes(
                 "adjusted_entry_price": updated.adjusted_entry_price,
                 "outcome_price": updated.outcome_price,
                 "return_pct": updated.return_pct,
+                "market_return_pct": updated.market_return_pct,
                 "horizon_days": updated.horizon_days,
                 "completed": completed,
             }
@@ -216,6 +220,7 @@ def attach_horizon_outcomes(
                 "outcome_price": updated.outcome_price,
                 "outcome_timestamp": outcome_timestamp,
                 "return_pct": updated.return_pct,
+                "market_return_pct": updated.market_return_pct,
                 "horizon_days": updated.horizon_days,
                 "completed": outcome_price is not None,
             }
@@ -224,26 +229,59 @@ def attach_horizon_outcomes(
 
 
 def summarize_outcomes(history: pd.DataFrame) -> pd.DataFrame:
-    """Summarize completed signal outcomes by signal type."""
+    """Summarize directional results separately from neutral market movement."""
+    columns = [
+        "signal",
+        "signals",
+        "completed",
+        "evaluated",
+        "win_rate_pct",
+        "avg_return_pct",
+        "market_avg_return_pct",
+        "underlying_up_rate_pct",
+    ]
     if history.empty:
-        return pd.DataFrame(
-            columns=["signal", "signals", "completed", "win_rate_pct", "avg_return_pct"]
-        )
-    completed = history[history["completed"]].copy()
+        return pd.DataFrame(columns=columns)
+
+    completed = history.loc[history["completed"].fillna(False)].copy()
     if completed.empty:
-        return pd.DataFrame(
-            columns=["signal", "signals", "completed", "win_rate_pct", "avg_return_pct"]
-        )
-    summary = (
-        completed.assign(
-            win=completed["return_pct"] > 0.0,
-        )
-        .groupby("signal", as_index=False)
-        .agg(
-            signals=("signal", "size"),
-            completed=("completed", "sum"),
-            win_rate_pct=("win", lambda values: values.mean() * 100.0),
-            avg_return_pct=("return_pct", "mean"),
-        )
+        return pd.DataFrame(columns=columns)
+
+    if "market_return_pct" not in completed:
+        completed["market_return_pct"] = pd.NA
+    completed["return_pct"] = pd.to_numeric(completed["return_pct"], errors="coerce")
+    completed["market_return_pct"] = pd.to_numeric(
+        completed["market_return_pct"], errors="coerce"
     )
-    return summary.sort_values("signal").reset_index(drop=True)
+
+    rows = []
+    for signal, group in completed.groupby("signal", sort=True):
+        strategy_returns = group["return_pct"].dropna()
+        market_returns = group["market_return_pct"].dropna()
+        rows.append(
+            {
+                "signal": signal,
+                "signals": len(group),
+                "completed": int(group["completed"].sum()),
+                "evaluated": len(strategy_returns),
+                "win_rate_pct": (
+                    float((strategy_returns > 0.0).mean() * 100.0)
+                    if not strategy_returns.empty
+                    else float("nan")
+                ),
+                "avg_return_pct": (
+                    float(strategy_returns.mean())
+                    if not strategy_returns.empty
+                    else float("nan")
+                ),
+                "market_avg_return_pct": (
+                    float(market_returns.mean()) if not market_returns.empty else float("nan")
+                ),
+                "underlying_up_rate_pct": (
+                    float((market_returns > 0.0).mean() * 100.0)
+                    if not market_returns.empty
+                    else float("nan")
+                ),
+            }
+        )
+    return pd.DataFrame(rows, columns=columns)
