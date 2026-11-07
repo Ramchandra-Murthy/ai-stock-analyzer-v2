@@ -74,6 +74,7 @@ def cached_download(
     *,
     period: str,
     ttl: float = DEFAULT_TTL_SECONDS,
+    cache_empty: bool = True,
     downloader: Callable[..., pd.DataFrame] | None = None,
     clock: Callable[[], float] = time.monotonic,
     **kwargs: Any,
@@ -107,7 +108,13 @@ def cached_download(
     try:
         frame = active_downloader(request, period=period, **kwargs)
         stored = pd.DataFrame() if frame is None else frame.copy()
-        lifetime = EMPTY_TTL_SECONDS if stored.empty else max(0.0, ttl)
+        lifetime = (
+            EMPTY_TTL_SECONDS
+            if stored.empty and cache_empty
+            else 0.0
+            if stored.empty
+            else max(0.0, ttl)
+        )
         with _lock:
             completed_at = clock()
             _cache[key] = (completed_at + lifetime, stored.copy())
