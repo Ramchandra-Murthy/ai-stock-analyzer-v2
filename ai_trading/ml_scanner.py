@@ -8,7 +8,7 @@ from ai_trading.adaptive_engine import (
     apply_adaptive_confidence,
     build_adaptive_adjustments,
 )
-from ai_trading.features import build_features
+from ai_trading.features import adjusted_close_series, build_features
 from ai_trading.ml_model import predict_latest, train_model
 from ai_trading.outcome_learning import confidence_bucket
 from ai_trading.regime_context import build_regime_context
@@ -41,6 +41,7 @@ def scan_frames(
                 frame,
                 horizon=horizon,
                 threshold=threshold,
+                refit_full=True,
             )
             prediction = predict_latest(model, frame)
             latest_features = build_features(frame).iloc[-1]
@@ -71,6 +72,7 @@ def scan_frames(
                 "symbol": str(symbol).upper(),
                 "exchange": exchange,
                 "latest_price": round(float(frame["Close"].dropna().iloc[-1]), 2),
+                "latest_adjusted_price": round(float(adjusted_close_series(frame).dropna().iloc[-1]), 4),
                 "probability_up_pct": round(float(prediction["probability_up"]) * 100, 1),
                 "signal": decision.signal,
                 "confidence_pct": adaptive_confidence,
@@ -100,6 +102,7 @@ def scan_frames(
         "symbol",
         "exchange",
         "latest_price",
+        "latest_adjusted_price",
         "probability_up_pct",
         "confidence_pct",
         "raw_confidence_pct",
