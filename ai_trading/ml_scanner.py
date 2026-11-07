@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 
 from ai_trading.adaptive_engine import (
@@ -61,6 +63,9 @@ def scan_frames(
             continue
 
         raw_confidence = decision.confidence_pct
+        adjusted_latest = float(adjusted_close_series(frame).iloc[-1])
+        if not math.isfinite(adjusted_latest) or adjusted_latest <= 0.0:
+            adjusted_latest = float(frame["Close"].dropna().iloc[-1])
         adaptive_confidence = apply_adaptive_confidence(
             raw_confidence,
             signal=decision.signal,
@@ -72,7 +77,7 @@ def scan_frames(
                 "symbol": str(symbol).upper(),
                 "exchange": exchange,
                 "latest_price": round(float(frame["Close"].dropna().iloc[-1]), 2),
-                "latest_adjusted_price": round(float(adjusted_close_series(frame).dropna().iloc[-1]), 4),
+                "latest_adjusted_price": round(adjusted_latest, 4),
                 "probability_up_pct": round(float(prediction["probability_up"]) * 100, 1),
                 "signal": decision.signal,
                 "confidence_pct": adaptive_confidence,
