@@ -188,7 +188,6 @@ def test_horizon_outcome_ignores_non_finite_prices() -> None:
     assert history.loc[0, "outcome_price"] == pytest.approx(105.0)
 
 
-
 def test_horizon_outcome_uses_adjusted_basis_across_a_split() -> None:
     from zoneinfo import ZoneInfo
 
