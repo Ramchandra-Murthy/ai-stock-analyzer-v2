@@ -162,11 +162,14 @@ def attach_horizon_outcomes(
         outcome_price = None
         outcome_timestamp = None
 
-        price_column = (
-            "Adj Close"
-            if record.adjusted_entry_price is not None and "Adj Close" in frame.columns
-            else "Close"
-        )
+        if frame is not None and not frame.empty:
+            price_column = (
+                "Adj Close"
+                if record.adjusted_entry_price is not None and "Adj Close" in frame.columns
+                else "Close"
+            )
+        else:
+            price_column = "Close"
         if frame is not None and not frame.empty and price_column in frame.columns:
             close = pd.to_numeric(frame[price_column], errors="coerce")
             close = close.where(close.map(lambda value: pd.notna(value) and math.isfinite(float(value))))
