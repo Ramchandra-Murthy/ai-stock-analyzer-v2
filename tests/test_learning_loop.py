@@ -46,7 +46,6 @@ def test_empty_learning_loop() -> None:
     assert learning_loop_summary(replay)["signals"] == 0.0
 
 
-
 def test_learning_loop_does_not_use_same_timestamp_outcomes() -> None:
     timestamp = pd.Timestamp("2026-01-01")
     history = pd.DataFrame(
