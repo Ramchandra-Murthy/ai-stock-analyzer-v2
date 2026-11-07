@@ -271,3 +271,46 @@ def test_timeframe_comparison_accepts_frequency_per_bar_size() -> None:
     assert comparison.loc["5min", "volatility"] == pytest.approx(
         comparison.loc["1d", "volatility"] * (78**0.5)
     )
+
+
+def test_open_final_position_is_marked_to_market_but_excluded_from_closed_trade_stats():
+    index = pd.date_range("2026-01-01", periods=3, freq="D")
+    prices = pd.Series([100.0, 110.0, 121.0], index=index)
+    signals = pd.Series([1.0, 1.0, 1.0], index=index)
+
+    data, metrics = run_backtest(prices, signals, cost_bps=0.0)
+
+    assert metrics.total_return == pytest.approx(0.21)
+    assert metrics.trade_count == 0
+    assert metrics.open_trade_count == 1
+    assert metrics.win_rate == pytest.approx(0.0)
+    assert metrics.profit_factor is None
+    assert data["position"].iloc[-1] == 1.0
+
+
+def test_closed_trade_stats_exclude_a_later_open_trade():
+    index = pd.date_range("2026-01-01", periods=6, freq="D")
+    prices = pd.Series([100.0, 110.0, 110.0, 110.0, 121.0, 133.1], index=index)
+    signals = pd.Series([1.0, 1.0, 0.0, 1.0, 1.0, 1.0], index=index)
+
+    _, metrics = run_backtest(prices, signals, cost_bps=0.0)
+
+    assert metrics.trade_count == 1
+    assert metrics.open_trade_count == 1
+    assert metrics.win_rate == pytest.approx(1.0)
+
+
+def test_timeframe_comparison_reports_open_positions():
+    from algorithmic_trading.backtester import compare_timeframe_backtests
+
+    index = pd.date_range("2026-01-01", periods=3, freq="D")
+    prices = pd.Series([100.0, 101.0, 102.0], index=index)
+    signals = pd.Series([1.0, 1.0, 1.0], index=index)
+
+    comparison = compare_timeframe_backtests(
+        {"1d": (prices, signals)},
+        cost_bps=0.0,
+    )
+
+    assert comparison.loc["1d", "trade_count"] == 0
+    assert comparison.loc["1d", "open_trade_count"] == 1

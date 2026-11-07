@@ -24,6 +24,7 @@ class BacktestMetrics:
     max_drawdown: float
     buy_hold_return: float
     trade_count: int
+    open_trade_count: int
     win_rate: float
     profit_factor: float | None
     volatility: float
@@ -93,6 +94,9 @@ def run_backtest(
 ) -> tuple[pd.DataFrame, BacktestMetrics]:
     """Backtest target positions using signals from the preceding bar.
 
+    Portfolio returns include mark-to-market P&L for any position still open at
+    the end of the sample. Trade statistics include only closed trades; the
+    final open directional episode is reported separately in open_trade_count.
     Signals should be -1, 0 or 1. A signal observed at timestamp *t* is
     shifted to the next aligned observation and applied to that observation's
     close-to-close return. This is a next-bar close-to-close model; it does not
@@ -149,6 +153,9 @@ def run_backtest(
     data["drawdown"] = data["strategy_equity"].div(peak).sub(1.0)
 
     trade_returns = _trade_returns(data)
+    open_trade_count = int(data["position"].iloc[-1] != 0.0)
+    if open_trade_count and not trade_returns.empty:
+        trade_returns = trade_returns.iloc[:-1]
     wins = trade_returns[trade_returns > 0]
     losses = trade_returns[trade_returns < 0]
     total_return = float(data["strategy_equity"].iloc[-1] / initial_capital - 1.0)
@@ -189,6 +196,7 @@ def run_backtest(
         max_drawdown=float(data["drawdown"].min()),
         buy_hold_return=float(data["buy_hold_equity"].iloc[-1] / initial_capital - 1.0),
         trade_count=int(len(trade_returns)),
+        open_trade_count=open_trade_count,
         win_rate=(float(len(wins) / len(trade_returns)) if len(trade_returns) else 0.0),
         profit_factor=profit_factor,
         volatility=volatility,
@@ -245,6 +253,7 @@ def compare_timeframe_backtests(
                 "max_drawdown": metrics.max_drawdown,
                 "buy_hold_return": metrics.buy_hold_return,
                 "trade_count": metrics.trade_count,
+                "open_trade_count": metrics.open_trade_count,
                 "win_rate": metrics.win_rate,
                 "profit_factor": metrics.profit_factor,
                 "volatility": metrics.volatility,
