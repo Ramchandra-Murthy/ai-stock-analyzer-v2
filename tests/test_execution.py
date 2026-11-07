@@ -10,6 +10,7 @@ from algorithmic_trading.execution import (
     vwap_schedule,
 )
 
+
 def test_schedules_sum_exactly_to_the_order():
     assert twap_schedule(1003, 7).sum() == 1003
     assert vwap_schedule(1003, u_shaped_profile(9)).sum() == 1003
