@@ -1,11 +1,11 @@
 import pandas as pd
 import pytest
 
-from algorithmic_trading.trading_costs import IndiaEquityCostModel
 from ai_trading.signal_trade_evaluation import (
     evaluate_signal_trades,
     summarize_signal_trade_evaluation,
 )
+from algorithmic_trading.trading_costs import IndiaEquityCostModel
 
 
 def _history():
