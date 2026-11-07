@@ -143,10 +143,7 @@ def test_rejects_noncanonical_iso_date_strings():
 
 
 def test_rejects_label_end_before_observation_date():
-    rows = [
-        {**row, "label_end_date": "2025-12-31"}
-        for row in _rows()
-    ]
+    rows = [{**row, "label_end_date": "2025-12-31"} for row in _rows()]
 
     with pytest.raises(ValueError, match="must not precede"):
         evaluate_momentum_walk_forward(rows, n_splits=3, label_end_key="label_end_date")
