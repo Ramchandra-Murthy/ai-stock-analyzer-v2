@@ -55,44 +55,55 @@ def run_learning_loop(
     rows: list[dict[str, object]] = []
     prior_completed = working.iloc[0:0].copy()
 
-    for _, row in working.iterrows():
+    for _, timestamp_rows in working.groupby("timestamp", sort=True):
+        # Every signal at one timestamp sees only outcomes from strictly earlier
+        # timestamps. Outcomes completed at this timestamp are added after the group.
         adjustments = build_adaptive_adjustments(
             prior_completed,
             min_samples=min_samples,
             max_adjustment_pct=max_adjustment_pct,
         )
-        raw_confidence = float(row["confidence_pct"])
-        signal = str(row["signal"])
-        regime = str(row["regime"])
-        adaptive_confidence = apply_adaptive_confidence(
-            raw_confidence,
-            signal=signal,
-            regime=regime,
-            adjustments=adjustments,
-        )
-        matches = adjustments[
-            (adjustments["signal"] == signal)
-            & ((adjustments["regime"] == regime) | (adjustments["regime"] == "ALL"))
-            & (adjustments["confidence_bucket"] == confidence_bucket(raw_confidence))
-        ]
-        samples = int(matches.iloc[0]["samples"]) if not matches.empty else 0
-        rows.append(
-            {
-                "timestamp": row["timestamp"],
-                "symbol": str(row["symbol"]),
-                "signal": signal,
-                "regime": regime,
-                "raw_confidence_pct": raw_confidence,
-                "adaptive_confidence_pct": adaptive_confidence,
-                "adaptive_adjustment_pct": round(adaptive_confidence - raw_confidence, 1),
-                "learning_samples": samples,
-                "completed": bool(row["completed"]),
-                "return_pct": row["return_pct"],
-            }
-        )
-        if bool(row["completed"]):
+        for _, row in timestamp_rows.iterrows():
+            raw_confidence = float(row["confidence_pct"])
+            signal = str(row["signal"])
+            regime = str(row["regime"])
+            adaptive_confidence = apply_adaptive_confidence(
+                raw_confidence,
+                signal=signal,
+                regime=regime,
+                adjustments=adjustments,
+            )
+            exact = adjustments[
+                (adjustments["signal"] == signal)
+                & (adjustments["regime"] == regime)
+                & (adjustments["confidence_bucket"] == confidence_bucket(raw_confidence))
+            ]
+            fallback = adjustments[
+                (adjustments["signal"] == signal)
+                & (adjustments["regime"] == "ALL")
+                & (adjustments["confidence_bucket"] == confidence_bucket(raw_confidence))
+            ]
+            matches = exact if not exact.empty else fallback
+            samples = int(matches.iloc[0]["samples"]) if not matches.empty else 0
+            rows.append(
+                {
+                    "timestamp": row["timestamp"],
+                    "symbol": str(row["symbol"]),
+                    "signal": signal,
+                    "regime": regime,
+                    "raw_confidence_pct": raw_confidence,
+                    "adaptive_confidence_pct": adaptive_confidence,
+                    "adaptive_adjustment_pct": round(adaptive_confidence - raw_confidence, 1),
+                    "learning_samples": samples,
+                    "completed": bool(row["completed"]),
+                    "return_pct": row["return_pct"],
+                }
+            )
+
+        completed_rows = timestamp_rows.loc[timestamp_rows["completed"].astype(bool)]
+        if not completed_rows.empty:
             prior_completed = pd.concat(
-                [prior_completed, working.loc[[row.name]]],
+                [prior_completed, completed_rows],
                 ignore_index=True,
             )
 
