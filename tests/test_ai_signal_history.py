@@ -126,7 +126,7 @@ def test_horizon_outcome_uses_nth_future_trading_bar() -> None:
         trend_pct=60.0,
         entry_price=100.0,
         horizon_days=2,
-        timestamp=datetime(2026, 10, 1, 9, 0, tzinfo=ZoneInfo("Asia/Kolkata")),
+        timestamp=datetime(2026, 10, 1, 15, 30, tzinfo=ZoneInfo("Asia/Kolkata")),
     )
     index = pd.date_range("2026-10-01", periods=4, freq="B", tz="Asia/Kolkata")
     frame = pd.DataFrame({"Close": [100.0, 105.0, 110.0, 115.0]}, index=index)
@@ -216,3 +216,31 @@ def test_horizon_outcome_uses_adjusted_basis_across_a_split() -> None:
 
     assert history.loc[0, "outcome_price"] == pytest.approx(50.0)
     assert history.loc[0, "return_pct"] == pytest.approx(0.0)
+
+
+
+def test_daily_bar_on_signal_date_counts_when_signal_precedes_market_close() -> None:
+    from zoneinfo import ZoneInfo
+
+    from ai_trading.signal_history import attach_horizon_outcomes
+
+    record = record_signal(
+        symbol="HDFCBANK",
+        exchange="NSE",
+        signal="LONG",
+        probability_up=0.65,
+        confidence_pct=65.0,
+        validation_pct=70.0,
+        trend_pct=60.0,
+        entry_price=100.0,
+        horizon_days=1,
+        timestamp=datetime(2026, 10, 1, 9, 0, tzinfo=ZoneInfo("Asia/Kolkata")),
+    )
+    index = pd.date_range("2026-10-01", periods=2, freq="B", tz="Asia/Kolkata")
+    frame = pd.DataFrame({"Close": [105.0, 110.0]}, index=index)
+
+    history = attach_horizon_outcomes([record], {"NSE:HDFCBANK": frame})
+
+    assert bool(history.loc[0, "completed"]) is True
+    assert history.loc[0, "outcome_price"] == pytest.approx(105.0)
+    assert history.loc[0, "outcome_timestamp"] == index[0]
