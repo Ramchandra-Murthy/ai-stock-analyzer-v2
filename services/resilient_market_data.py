@@ -100,6 +100,11 @@ def _download_batch(
     return pd.DataFrame()
 
 
+def _cached_yfinance_history(ticker: str, *, period: str, **kwargs: Any) -> pd.DataFrame:
+    """Stable downloader identity for successful single-symbol recovery caching."""
+    return yf.Ticker(ticker).history(period=period, **kwargs)
+
+
 def _download_single(
     ticker: str,
     *,
@@ -114,8 +119,12 @@ def _download_single(
     retry_count = max(0, int(retries))
     for attempt in range(retry_count + 1):
         try:
-            result = yf.Ticker(ticker).history(
+            result = cached_download(
+                ticker,
                 period=period,
+                ttl=900.0,
+                cache_empty=False,
+                downloader=_cached_yfinance_history,
                 interval=interval,
                 auto_adjust=auto_adjust,
                 timeout=timeout,
