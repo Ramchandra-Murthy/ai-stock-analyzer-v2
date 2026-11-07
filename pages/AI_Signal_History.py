@@ -105,7 +105,7 @@ if missing_market_returns.any() and {"entry_price", "outcome_price"}.issubset(hi
         missing_market_returns
     ]
 neutral_mask = history["signal"].eq("NEUTRAL")
-history.loc[neutral_mask, "return_pct"] = pd.NA
+history.loc[neutral_mask, "return_pct"] = float("nan")
 
 st.subheader("Signal History")
 st.dataframe(history, use_container_width=True, hide_index=True)
