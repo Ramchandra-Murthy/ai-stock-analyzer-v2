@@ -5,6 +5,11 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from ai_trading.historical_benchmarks import (
+    NIFTY_50_TICKER,
+    SECTOR_INDEX_TICKERS,
+    attach_historical_benchmarks,
+)
 from ai_trading.signal_history import attach_horizon_outcomes, summarize_outcomes
 from ai_trading.signal_history_store import (
     SignalHistoryStoreError,
@@ -126,6 +131,70 @@ if missing_market_returns.any() and {"entry_price", "outcome_price"}.issubset(hi
     history.loc[valid_prices, "market_return_pct"] = computed_market_returns.loc[valid_prices]
 neutral_mask = history["signal"].eq("NEUTRAL")
 history.loc[neutral_mask, "return_pct"] = float("nan")
+
+st.subheader("Historical Benchmark Comparison")
+st.caption(
+    "Matches each signal to NIFTY 50 and, where mapped, its NIFTY sector index. "
+    "Intraday signals use the previous completed daily close; after-close signals "
+    "may use that session close. The outcome benchmark must have an exact matching "
+    "session. Missing data remains unavailable, not estimated."
+)
+if "outcome_timestamp" not in history.columns:
+    st.info(
+        "Benchmark matching requires recorded outcome timestamps. Refresh signal outcomes first."
+    )
+elif st.button("Refresh historical benchmark returns"):
+    benchmark_tickers = list(dict.fromkeys([NIFTY_50_TICKER, *SECTOR_INDEX_TICKERS.values()]))
+    with st.spinner("Downloading NIFTY 50 and sector-index history..."):
+        benchmark_frames, benchmark_diagnostics = download_symbol_frames(
+            benchmark_tickers,
+            period="5y",
+            interval="1d",
+            auto_adjust=False,
+            batch_size=10,
+            timeout=15,
+        )
+        history = attach_historical_benchmarks(history, benchmark_frames)
+        st.session_state["ai_signal_history"] = history
+        try:
+            save_signal_snapshot(records, history)
+        except SignalHistoryStoreError as exc:
+            st.warning(
+                f"Benchmark results are available in this session but could not be persisted: {exc}"
+            )
+    matched = int(history["benchmark_status"].eq("matched_daily_close_proxy").sum())
+    st.success(f"Matched NIFTY 50 returns for {matched}/{len(history)} signal observations.")
+    missing_benchmarks = benchmark_diagnostics.get("missing", [])
+    if missing_benchmarks:
+        st.warning(
+            f"Yahoo Finance did not return {len(missing_benchmarks)} benchmark indices. "
+            "Those comparisons remain unavailable."
+        )
+
+if "benchmark_return_pct" in history.columns:
+    benchmark_columns = [
+        column
+        for column in (
+            "symbol",
+            "timestamp",
+            "outcome_timestamp",
+            "benchmark_name",
+            "benchmark_return_pct",
+            "benchmark_status",
+            "sector",
+            "sector_benchmark_name",
+            "sector_benchmark_return_pct",
+            "sector_benchmark_status",
+        )
+        if column in history.columns
+    ]
+    st.dataframe(history[benchmark_columns], use_container_width=True, hide_index=True)
+    st.download_button(
+        "Download Historical Benchmark Report CSV",
+        data=history[benchmark_columns].to_csv(index=False).encode("utf-8"),
+        file_name="historical_signal_benchmarks.csv",
+        mime="text/csv",
+    )
 
 st.subheader("Signal History")
 st.dataframe(history, use_container_width=True, hide_index=True)
