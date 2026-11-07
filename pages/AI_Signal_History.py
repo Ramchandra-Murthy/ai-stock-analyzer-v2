@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.signal_history import attach_horizon_outcomes, summarize_outcomes
+from ai_trading.signal_performance import summarize_signal_performance
 from ai_trading.signal_history_store import (
     SignalHistoryStoreError,
     load_signal_snapshot,
@@ -88,6 +89,25 @@ if summary.empty:
 
 st.subheader("Outcome Summary")
 st.dataframe(summary, use_container_width=True, hide_index=True)
+
+st.subheader("Signal Performance & Reliability")
+performance = summarize_signal_performance(history)
+if performance.empty:
+    st.info("Performance metrics require completed outcomes with valid returns.")
+else:
+    st.caption(
+        "Only completed outcomes are included. Break-even results count in the sample, "
+        "but are neither wins nor losses. Win-rate bounds are 95% Wilson intervals. "
+        "Drawdown is an equally weighted sequential signal-return proxy, not account-level "
+        "drawdown; overlapping positions, brokerage, taxes and slippage are not modeled."
+    )
+    st.dataframe(performance, use_container_width=True, hide_index=True)
+    st.download_button(
+        "Download Performance Report CSV",
+        data=performance.to_csv(index=False).encode("utf-8"),
+        file_name="signal_performance_report.csv",
+        mime="text/csv",
+    )
 
 metric1, metric2, metric3 = st.columns(3)
 completed = history[history["completed"]]
