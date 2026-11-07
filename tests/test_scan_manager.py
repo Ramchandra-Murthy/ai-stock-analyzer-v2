@@ -9,7 +9,6 @@ import pytest
 
 from api.scan_manager import ErosScanManager
 
-
 def test_background_price_jump_scan_completes() -> None:
     frame = pd.DataFrame({"Symbol": ["TEST"], "Change over 5m": [1.5]})
     frame.attrs["scan_stats"] = {"candidate_count": 1}
@@ -29,7 +28,6 @@ def test_background_price_jump_scan_completes() -> None:
         assert job["count"] == 1
         assert job["scan_stats"]["candidate_count"] == 1
         assert job["results"][0]["Symbol"] == "TEST"
-
 
 @pytest.mark.parametrize(
     ("second_lookback", "same_job"),
@@ -68,7 +66,6 @@ def test_active_price_jump_scan_parameter_handling(
         else:
             assert second_job_id != first_job_id
         release.set()
-
 
 def test_queued_price_jump_scan_keeps_matching_job() -> None:
     frame = pd.DataFrame({"Symbol": ["TEST"]})
@@ -119,7 +116,6 @@ def test_queued_price_jump_scan_keeps_matching_job() -> None:
         assert job is not None
         assert job["status"] == "completed"
 
-
 def test_background_day_trader_scan_completes_and_preserves_scan_stats() -> None:
     frame = pd.DataFrame({"Symbol": ["TEST"], "Opportunity score": [75.0]})
     frame.attrs["scan_stats"] = {"candidate_count": 12, "usable_data_count": 1}
@@ -137,7 +133,6 @@ def test_background_day_trader_scan_completes_and_preserves_scan_stats() -> None
     assert job["count"] == 1
     assert job["results"][0]["Symbol"] == "TEST"
     assert job["scan_stats"] == {"candidate_count": 12, "usable_data_count": 1}
-
 
 def test_identical_active_day_trader_scans_are_deduplicated() -> None:
     frame = pd.DataFrame({"Symbol": ["TEST"]})
@@ -159,7 +154,6 @@ def test_identical_active_day_trader_scans_are_deduplicated() -> None:
         assert different == first  # changed controls must not queue a second universe scan
         release.set()
 
-
 def test_day_trader_scan_failure_is_reported_without_provider_details() -> None:
     manager = ErosScanManager(max_workers=1)
     with patch(
@@ -177,7 +171,6 @@ def test_day_trader_scan_failure_is_reported_without_provider_details() -> None:
     assert job["status"] == "failed"
     assert job["error"] == "Day-Trader scan failed (RuntimeError)."
     assert "secret" not in job["error"]
-
 
 def test_price_jump_queue_rejects_new_work_when_all_slots_are_active() -> None:
     started = Event()
@@ -202,7 +195,6 @@ def test_price_jump_queue_rejects_new_work_when_all_slots_are_active() -> None:
             if job and job["status"] == "completed":
                 break
             time.sleep(0.01)
-
 
 def test_price_jump_deduplication_does_not_match_day_trader_job() -> None:
     started = Event()
@@ -232,7 +224,6 @@ def test_price_jump_deduplication_does_not_match_day_trader_job() -> None:
                 break
             time.sleep(0.01)
 
-
 def test_price_jump_failure_does_not_expose_provider_error_details() -> None:
     manager = ErosScanManager(max_workers=1)
     with patch(
@@ -250,8 +241,6 @@ def test_price_jump_failure_does_not_expose_provider_error_details() -> None:
     assert job["status"] == "failed"
     assert job["error"] == "Price-jump scan failed (RuntimeError)."
     assert "secret" not in job["error"]
-
-
 
 def test_day_trader_queue_rejects_new_work_when_all_slots_are_active() -> None:
     started = Event()
@@ -279,4 +268,3 @@ def test_day_trader_queue_rejects_new_work_when_all_slots_are_active() -> None:
             if job and job["status"] == "completed":
                 break
             time.sleep(0.01)
-
