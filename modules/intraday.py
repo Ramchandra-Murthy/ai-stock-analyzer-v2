@@ -51,8 +51,8 @@ from scanner.price_jump_confluence import match_price_jumps_to_confluence
 from scanner.price_jump_history import append_price_jump_snapshot
 from scanner.price_jump_history_analytics import summarize_price_jump_history
 from scanner.unusual_activity import scan_unusual_activity
-from services.symbol_resolver import yahoo_ticker
 from services.intraday_candle_quality import assess_intraday_candles
+from services.symbol_resolver import yahoo_ticker
 
 IST = ZoneInfo("Asia/Kolkata")
 
