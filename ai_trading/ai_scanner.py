@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import pandas as pd
 
 from ai_trading.features import build_features
 from ai_trading.signal_engine import score_features
+from services.data_quality import filter_stale_frames
 from services.resilient_market_data import download_market_frames
+
+IST = ZoneInfo("Asia/Kolkata")
 
 
 def scan_universe(symbols: list[str], exchange: str = "NSE", period: str = "1y") -> pd.DataFrame:
@@ -30,6 +36,15 @@ def scan_universe(symbols: list[str], exchange: str = "NSE", period: str = "1y")
         batch_size=10,
         timeout=15,
     )
+    # A symbol whose latest daily bar trails the newest observed session in this
+    # batch must not produce a current-looking signal. This is deliberately a
+    # relative-session guard: it does not assume an NSE/BSE holiday calendar.
+    frames, freshness = filter_stale_frames(
+        frames,
+        today=datetime.now(IST).date(),
+    )
+    diagnostics["freshness"] = freshness
+
     if not frames:
         empty = pd.DataFrame(
             columns=[
