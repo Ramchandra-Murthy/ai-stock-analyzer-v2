@@ -117,17 +117,7 @@ class ErosScanManager:
                 }:
                     return existing_id
 
-            if len(self._jobs) >= self._max_jobs:
-                terminal_job_id = next(
-                    (
-                        existing_id
-                        for existing_id, existing_job in self._jobs.items()
-                        if existing_job["status"] in {"completed", "failed"}
-                    ),
-                    None,
-                )
-                if terminal_job_id is not None:
-                    del self._jobs[terminal_job_id]
+            self._make_room()
 
             job_id = uuid4().hex
             self._jobs[job_id] = {
