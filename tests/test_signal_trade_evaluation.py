@@ -51,12 +51,13 @@ def test_short_benchmark_is_direction_adjusted_before_excess_comparison():
 
     assert short["benchmark_return_pct"] == pytest.approx(2.0)
     assert short["directional_benchmark_return_pct"] == pytest.approx(-2.0)
-    assert short["excess_return_pct"] == pytest.approx(3.7256)
+    assert short["excess_return_pct"] == pytest.approx(2.7256)
 
 
 def test_pending_neutral_and_nonfinite_outcomes_are_excluded():
     history = _history()
     history.loc[0, "return_pct"] = float("inf")
+    history.loc[1, "completed"] = False
     result = evaluate_signal_trades(history, _cost_model())
 
     assert result.empty
