@@ -53,10 +53,12 @@ class PaperPortfolio:
 
     def equity(self, prices: dict[str, float]) -> float:
         """Mark current positions to supplied latest prices."""
+        missing = sorted(set(self.positions).difference(prices))
+        if missing:
+            raise ValueError(f"missing mark prices for open positions: {', '.join(missing)}")
+
         market_value = 0.0
         for symbol, quantity in self.positions.items():
-            if symbol not in prices:
-                continue
             price = float(prices[symbol])
             if not isfinite(price) or price <= 0:
                 raise ValueError(f"price for {symbol} must be finite and positive")
@@ -138,6 +140,10 @@ def apply_ml_signals(
         raise ValueError("capital_fraction must be between 0 and 1")
     if max_positions < 1:
         raise ValueError("max_positions must be at least 1")
+
+    # Do not mutate holdings or size new entries from an understated portfolio
+    # value when any existing position lacks a current mark.
+    portfolio.equity(prices)
 
     required = {"symbol", "signal"}
     missing = required.difference(signals.columns)
