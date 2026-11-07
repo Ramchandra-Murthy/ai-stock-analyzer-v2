@@ -5,12 +5,12 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from ai_trading.signal_history import attach_horizon_outcomes, summarize_outcomes
 from ai_trading.historical_benchmarks import (
     NIFTY_50_TICKER,
     SECTOR_INDEX_TICKERS,
     attach_historical_benchmarks,
 )
+from ai_trading.signal_history import attach_horizon_outcomes, summarize_outcomes
 from ai_trading.signal_history_store import (
     SignalHistoryStoreError,
     load_signal_snapshot,
