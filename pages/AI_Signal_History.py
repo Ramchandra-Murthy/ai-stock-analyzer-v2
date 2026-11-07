@@ -6,6 +6,12 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.signal_history import attach_horizon_outcomes, summarize_outcomes
+from ai_trading.signal_history_store import (
+    SignalHistoryStoreError,
+    load_signal_snapshot,
+    save_signal_snapshot,
+    signal_history_backend,
+)
 from components.disclaimer import show_disclaimer
 from services.resilient_market_data import download_symbol_frames
 
@@ -15,6 +21,17 @@ st.title("🗂️ AI Signal History")
 show_disclaimer()
 st.caption("Historical AI signal outcome analytics. No broker orders are submitted.")
 
+if not st.session_state.get("ai_signal_store_loaded", False):
+    try:
+        stored_records, stored_history = load_signal_snapshot()
+        st.session_state["ai_signal_records"] = stored_records
+        st.session_state["ai_signal_history"] = stored_history
+    except SignalHistoryStoreError as exc:
+        st.warning(f"Persistent signal history is unavailable: {exc}")
+        st.session_state.setdefault("ai_signal_records", [])
+    st.session_state["ai_signal_store_loaded"] = True
+
+st.caption(f"Signal history storage: {signal_history_backend().upper()}")
 records = st.session_state.get("ai_signal_records", [])
 if isinstance(records, list) and records and st.button("Refresh completed signal outcomes"):
     tickers_by_key = {}
@@ -40,6 +57,10 @@ if isinstance(records, list) and records and st.button("Refresh completed signal
         }
         history = attach_horizon_outcomes(records, frames_by_key)
         st.session_state["ai_signal_history"] = history
+        try:
+            save_signal_snapshot(records, history)
+        except SignalHistoryStoreError as exc:
+            st.warning(f"Outcomes were refreshed in this session but could not be persisted: {exc}")
     completed_count = int(history["completed"].sum()) if not history.empty else 0
     st.success(f"Updated signal outcomes: {completed_count}/{len(history)} horizons completed.")
     missing = diagnostics.get("missing", [])
