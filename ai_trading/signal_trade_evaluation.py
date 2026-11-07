@@ -91,9 +91,7 @@ def evaluate_signal_trades(
     if "sector_benchmark_return_pct" in result.columns:
         sector_benchmark = pd.to_numeric(result["sector_benchmark_return_pct"], errors="coerce")
         sector_benchmark = sector_benchmark.where(
-            sector_benchmark.map(
-                lambda value: pd.isna(value) or math.isfinite(float(value))
-            )
+            sector_benchmark.map(lambda value: pd.isna(value) or math.isfinite(float(value)))
         )
         direction = result["signal"].map({"LONG": 1.0, "SHORT": -1.0})
         result["sector_benchmark_return_pct"] = sector_benchmark
@@ -157,7 +155,9 @@ def summarize_signal_trade_evaluation(evaluation: pd.DataFrame) -> pd.DataFrame:
             else pd.Series(dtype=float)
         )
         sector_benchmark = (
-            pd.to_numeric(group["directional_sector_benchmark_return_pct"], errors="coerce").dropna()
+            pd.to_numeric(
+                group["directional_sector_benchmark_return_pct"], errors="coerce"
+            ).dropna()
             if "directional_sector_benchmark_return_pct" in group
             else pd.Series(dtype=float)
         )
@@ -191,7 +191,9 @@ def summarize_signal_trade_evaluation(evaluation: pd.DataFrame) -> pd.DataFrame:
                     float((excess > 0.0).mean() * 100.0) if not excess.empty else float("nan")
                 ),
                 "avg_sector_benchmark_return_pct": (
-                    float(pd.to_numeric(group["sector_benchmark_return_pct"], errors="coerce").mean())
+                    float(
+                        pd.to_numeric(group["sector_benchmark_return_pct"], errors="coerce").mean()
+                    )
                     if "sector_benchmark_return_pct" in group
                     else float("nan")
                 ),
