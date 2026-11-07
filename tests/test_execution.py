@@ -9,8 +9,6 @@ from algorithmic_trading.execution import (
     u_shaped_profile,
     vwap_schedule,
 )
-
-
 def test_schedules_sum_exactly_to_the_order():
     assert twap_schedule(1003, 7).sum() == 1003
     assert vwap_schedule(1003, u_shaped_profile(9)).sum() == 1003
@@ -75,8 +73,6 @@ def test_rupee_shortfall_matches_hand_calculation():
         lambda: simulate_execution("buy", [1], [-1.0], [1.0], adv=1, daily_vol=0.01),
     ],
 )
-
-
 def test_bad_inputs_raise(call):
     with pytest.raises(ValueError):
         call()
@@ -94,8 +90,6 @@ def test_bad_inputs_raise(call):
         ([1], [100.0], [100.0], {"adv": float("inf")}),
     ],
 )
-
-
 def test_execution_rejects_non_finite_or_inconsistent_inputs(schedule, prices, volumes, kwargs):
     params = {"adv": 1_000_000.0, "daily_vol": 0.02, **kwargs}
     with pytest.raises(ValueError):
