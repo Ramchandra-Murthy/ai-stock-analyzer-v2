@@ -101,3 +101,14 @@ def test_execution_rejects_non_finite_or_inconsistent_inputs(schedule, prices, v
 def test_square_root_impact_rejects_non_finite_parameters():
     with pytest.raises(ValueError):
         square_root_impact(1, float("inf"), 0.02)
+
+
+
+@pytest.mark.parametrize("shares", [10.5, float("nan"), float("inf"), -1, True])
+def test_all_execution_schedules_reject_invalid_share_counts(shares):
+    with pytest.raises(ValueError, match="whole number"):
+        twap_schedule(shares, 3)
+    with pytest.raises(ValueError, match="whole number"):
+        vwap_schedule(shares, [1.0, 2.0, 1.0])
+    with pytest.raises(ValueError, match="whole number"):
+        pov_schedule(shares, [100, 100, 100], 0.1)
