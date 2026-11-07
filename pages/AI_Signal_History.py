@@ -21,9 +21,7 @@ if isinstance(records, list) and records and st.button("Refresh completed signal
     for record in records:
         suffix = ".NS" if record.exchange == "NSE" else ".BO"
         ticker = (
-            record.symbol
-            if record.symbol.endswith((".NS", ".BO"))
-            else f"{record.symbol}{suffix}"
+            record.symbol if record.symbol.endswith((".NS", ".BO")) else f"{record.symbol}{suffix}"
         )
         tickers_by_key[f"{record.exchange}:{record.symbol}"] = ticker
     tickers = sorted(set(tickers_by_key.values()))
@@ -46,7 +44,9 @@ if isinstance(records, list) and records and st.button("Refresh completed signal
     st.success(f"Updated signal outcomes: {completed_count}/{len(history)} horizons completed.")
     missing = diagnostics.get("missing", [])
     if missing:
-        st.warning(f"Market data was unavailable for {len(missing)} symbols; those outcomes remain pending.")
+        st.warning(
+            f"Market data was unavailable for {len(missing)} symbols; those outcomes remain pending."
+        )
 
 history = st.session_state.get("ai_signal_history")
 
