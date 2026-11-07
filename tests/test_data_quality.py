@@ -55,3 +55,50 @@ def test_split_stale_ignores_future_dated_bars_when_choosing_reference() -> None
 def test_split_stale_with_no_usable_dates_returns_everything_stale() -> None:
     assert split_stale({}) == (None, [])
     assert split_stale({"A.NS": None}) == (None, ["A.NS"])
+
+
+def test_filter_stale_frames_excludes_symbols_behind_batch_reference() -> None:
+    from services.data_quality import filter_stale_frames
+
+    frames = {
+        "FRESH.NS": pd.DataFrame(
+            {"Close": [100.0, 101.0]},
+            index=pd.to_datetime(["2026-10-29", "2026-10-30"]),
+        ),
+        "HALTED.NS": pd.DataFrame(
+            {"Close": [50.0, 51.0]},
+            index=pd.to_datetime(["2026-10-27", "2026-10-28"]),
+        ),
+    }
+
+    usable, status = filter_stale_frames(frames, today=date(2026, 10, 30))
+
+    assert list(usable) == ["FRESH.NS"]
+    assert status == {
+        "reference_session": "2026-10-30",
+        "stale_symbols": ["HALTED.NS"],
+        "checked_symbols": 2,
+        "usable_symbols": 1,
+        "policy": "relative_latest_session",
+    }
+
+
+def test_filter_stale_frames_rejects_future_and_unknown_dates() -> None:
+    from services.data_quality import filter_stale_frames
+
+    frames = {
+        "VALID.NS": pd.DataFrame(
+            {"Close": [100.0]},
+            index=pd.to_datetime(["2026-10-30"]),
+        ),
+        "FUTURE.NS": pd.DataFrame(
+            {"Close": [100.0]},
+            index=pd.to_datetime(["2026-12-25"]),
+        ),
+        "UNKNOWN.NS": pd.DataFrame({"Close": [100.0]}),
+    }
+
+    usable, status = filter_stale_frames(frames, today=date(2026, 10, 30))
+
+    assert list(usable) == ["VALID.NS"]
+    assert status["stale_symbols"] == ["FUTURE.NS", "UNKNOWN.NS"]
