@@ -47,7 +47,9 @@ def test_rejects_invalid_risk_budget(budget):
 @pytest.mark.parametrize("limit", [float("nan"), float("-inf"), -1])
 def test_rejects_invalid_capital_limit(limit):
     with pytest.raises(ValueError, match="capital_limit"):
-        risk_plan_frame(pd.DataFrame([{"Price": 100.0, "Risk per share": 2.0}]), capital_limit=limit)
+        risk_plan_frame(
+            pd.DataFrame([{"Price": 100.0, "Risk per share": 2.0}]), capital_limit=limit
+        )
 
 
 def test_invalid_row_prices_and_risk_fail_closed_to_zero_quantity():
