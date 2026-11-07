@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
+from numbers import Integral, Real
+
+
+def _require_finite_number(name: str, value: float) -> None:
+    if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(float(value)):
+        raise ValueError(f"{name} must be a finite number")
 
 
 @dataclass(frozen=True)
@@ -14,6 +21,9 @@ class RiskLimits:
     cash_reserve_pct: float = 10.0
 
     def __post_init__(self) -> None:
+        _require_finite_number("max_exposure_pct", self.max_exposure_pct)
+        _require_finite_number("max_position_pct", self.max_position_pct)
+        _require_finite_number("cash_reserve_pct", self.cash_reserve_pct)
         if not 0.0 < self.max_exposure_pct <= 100.0:
             raise ValueError("max_exposure_pct must be between 0 and 100")
         if not 0.0 < self.max_position_pct <= 100.0:
@@ -31,12 +41,17 @@ class RiskLimits:
         candidate_count: int,
     ) -> dict[str, float]:
         """Return total capital available and per-candidate allocation."""
+        _require_finite_number("equity", equity)
+        _require_finite_number("cash", cash)
+        _require_finite_number("market_value", market_value)
         if equity <= 0:
             raise ValueError("equity must be positive")
         if cash < 0 or market_value < 0:
             raise ValueError("cash and market_value cannot be negative")
+        if isinstance(candidate_count, bool) or not isinstance(candidate_count, Integral):
+            raise ValueError("candidate_count must be a non-negative integer")
         if candidate_count < 0:
-            raise ValueError("candidate_count cannot be negative")
+            raise ValueError("candidate_count must be a non-negative integer")
 
         max_exposure_value = equity * self.max_exposure_pct / 100.0
         reserve_value = equity * self.cash_reserve_pct / 100.0
@@ -67,6 +82,11 @@ def risk_warnings(
     limits: RiskLimits,
 ) -> list[str]:
     """Return human-readable warnings for the current portfolio state."""
+    _require_finite_number("equity", equity)
+    _require_finite_number("cash", cash)
+    _require_finite_number("market_value", market_value)
+    if cash < 0 or market_value < 0:
+        raise ValueError("cash and market_value cannot be negative")
     if equity <= 0:
         return ["Portfolio equity is non-positive. No new allocation is allowed."]
 
