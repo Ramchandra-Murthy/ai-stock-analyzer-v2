@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import closing
 import os
 import sqlite3
 import urllib.error
@@ -213,7 +214,7 @@ def save_signal_snapshot(
         )
     else:
         try:
-            with _connect() as connection:
+            with closing(_connect()) as connection, connection:
                 connection.executemany(
                     """
                     INSERT INTO ai_signal_history (
