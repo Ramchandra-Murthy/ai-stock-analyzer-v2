@@ -51,6 +51,7 @@ from scanner.price_jump_confluence import match_price_jumps_to_confluence
 from scanner.price_jump_history import append_price_jump_snapshot
 from scanner.price_jump_history_analytics import summarize_price_jump_history
 from scanner.unusual_activity import scan_unusual_activity
+from services.intraday_candle_quality import assess_intraday_candles
 from services.symbol_resolver import yahoo_ticker
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -238,8 +239,8 @@ def _frame_from_board_download(history: pd.DataFrame, ticker: str) -> pd.DataFra
     required = {"Close"}
     if not required.issubset(frame.columns):
         return pd.DataFrame()
-    frame = frame.dropna(subset=["Close"]).sort_index()
-    return frame[~frame.index.duplicated(keep="last")]
+    # Preserve provider ordering and duplicate timestamps for integrity checks.
+    return frame.dropna(subset=["Close"])
 
 
 @st.cache_data(ttl=LIVE_BOARD_REFRESH_SECONDS, show_spinner=False)
@@ -255,6 +256,9 @@ def _fetch_live_board() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[
     stats = {
         "candidates": len(candidates),
         "usable": 0,
+        "quality_rejected": 0,
+        "delayed_quotes": 0,
+        "missing_intervals": 0,
         "failed_chunks": 0,
         "chunks": 0,
         "download_seconds": 0.0,
@@ -299,6 +303,20 @@ def _fetch_live_board() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[
             processing_started = perf_counter()
             for ticker in chunk:
                 frame = _frame_from_board_download(history, ticker)
+                checked_at = datetime.now(IST)
+                quality = assess_intraday_candles(
+                    frame,
+                    interval_minutes=1,
+                    retrieved_at=checked_at,
+                    max_quote_age_seconds=180,
+                    market_session_active=_market_session_is_open(checked_at),
+                )
+                stats["missing_intervals"] += int(quality["missing_intervals"])
+                if quality["delayed"]:
+                    stats["delayed_quotes"] += 1
+                if not quality["usable"]:
+                    stats["quality_rejected"] += 1
+                    continue
                 if len(frame) < 2:
                     continue
                 stats["usable"] += 1
