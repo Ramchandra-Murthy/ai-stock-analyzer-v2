@@ -41,6 +41,7 @@ def scan_frames(
                 frame,
                 horizon=horizon,
                 threshold=threshold,
+                refit_full=True,
             )
             prediction = predict_latest(model, frame)
             latest_features = build_features(frame).iloc[-1]

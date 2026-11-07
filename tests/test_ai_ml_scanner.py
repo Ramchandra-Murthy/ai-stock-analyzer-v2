@@ -60,3 +60,20 @@ def test_scan_frames_without_history_preserves_raw_confidence() -> None:
     assert row["confidence_pct"] == row["raw_confidence_pct"]
     assert row["adaptive_adjustment_pct"] == 0.0
     assert row["adaptive_samples"] == 0
+
+
+def test_scan_frames_refits_on_all_known_labels_for_live_prediction(monkeypatch) -> None:
+    from ai_trading import ml_scanner
+
+    original_train_model = ml_scanner.train_model
+    refit_values = []
+
+    def train_model_spy(*args, **kwargs):
+        refit_values.append(kwargs.get("refit_full"))
+        return original_train_model(*args, **kwargs)
+
+    monkeypatch.setattr(ml_scanner, "train_model", train_model_spy)
+    result = scan_frames({"RELIANCE": _frame(4)}, exchange="NSE", threshold=0.0)
+
+    assert len(result) == 1
+    assert refit_values == [True]
