@@ -253,7 +253,7 @@ def load_signal_snapshot() -> tuple[list[SignalRecord], pd.DataFrame]:
         rows = _supabase_request("GET", query)
     else:
         try:
-            with _connect() as connection:
+            with closing(_connect()) as connection, connection:
                 rows = [
                     {
                         "record": json.loads(row["record_json"]),
