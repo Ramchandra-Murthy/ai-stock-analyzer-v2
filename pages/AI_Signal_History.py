@@ -45,10 +45,7 @@ has_pending_outcomes = (
 )
 refresh_requested = False
 if records:
-    if (
-        has_pending_outcomes
-        and not st.session_state.get("ai_signal_auto_refresh_attempted", False)
-    ):
+    if has_pending_outcomes and not st.session_state.get("ai_signal_auto_refresh_attempted", False):
         refresh_requested = True
         st.session_state["ai_signal_auto_refresh_attempted"] = True
         st.caption("Automatically checking pending signal outcomes on this visit.")
