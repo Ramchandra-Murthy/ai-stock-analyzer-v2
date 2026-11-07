@@ -55,7 +55,6 @@ def test_multi_stock_calibration_rejects_invalid_exchange() -> None:
         monitor_calibration_frames({"AAA": _market_frame()}, exchange="NYSE")
 
 
-
 def test_expected_calibration_error_is_sample_weighted():
     error = expected_calibration_error(
         np.array([0, 1, 0, 1]),
