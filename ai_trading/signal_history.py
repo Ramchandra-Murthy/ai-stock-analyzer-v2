@@ -23,6 +23,7 @@ class SignalRecord:
     trend_pct: float
     entry_price: float
     horizon_days: int
+    adjusted_entry_price: float | None = None
     outcome_price: float | None = None
     raw_confidence_pct: float | None = None
     adaptive_confidence_pct: float | None = None
@@ -32,9 +33,14 @@ class SignalRecord:
     @property
     def return_pct(self) -> float | None:
         """Return price change, signed by the recorded signal direction."""
-        if self.outcome_price is None or self.entry_price <= 0:
+        entry_price = (
+            self.adjusted_entry_price
+            if self.adjusted_entry_price is not None
+            else self.entry_price
+        )
+        if self.outcome_price is None or entry_price <= 0:
             return None
-        raw_return = (self.outcome_price / self.entry_price - 1.0) * 100.0
+        raw_return = (self.outcome_price / entry_price - 1.0) * 100.0
         if self.signal == "SHORT":
             return -raw_return
         if self.signal == "NEUTRAL":
@@ -54,6 +60,7 @@ def record_signal(
     entry_price: float,
     horizon_days: int,
     timestamp: datetime | None = None,
+    adjusted_entry_price: float | None = None,
     raw_confidence_pct: float | None = None,
     adaptive_confidence_pct: float | None = None,
     adaptive_adjustment_pct: float | None = None,
@@ -66,8 +73,12 @@ def record_signal(
         raise ValueError("probability_up must be between 0 and 1")
     if confidence_pct < 0.0 or validation_pct < 0.0 or trend_pct < 0.0:
         raise ValueError("signal percentages must be non-negative")
-    if entry_price <= 0.0:
-        raise ValueError("entry_price must be positive")
+    if not math.isfinite(float(entry_price)) or entry_price <= 0.0:
+        raise ValueError("entry_price must be finite and positive")
+    if adjusted_entry_price is not None and (
+        not math.isfinite(float(adjusted_entry_price)) or adjusted_entry_price <= 0.0
+    ):
+        raise ValueError("adjusted_entry_price must be finite and positive")
     if adaptive_samples < 0:
         raise ValueError("adaptive_samples must be non-negative")
     if horizon_days < 1:
@@ -83,6 +94,9 @@ def record_signal(
         trend_pct=round(trend_pct, 1),
         entry_price=float(entry_price),
         horizon_days=horizon_days,
+        adjusted_entry_price=(
+            float(adjusted_entry_price) if adjusted_entry_price is not None else None
+        ),
         raw_confidence_pct=(
             round(raw_confidence_pct, 1) if raw_confidence_pct is not None else None
         ),
@@ -121,6 +135,7 @@ def attach_outcomes(
                 "validation_pct": updated.validation_pct,
                 "trend_pct": updated.trend_pct,
                 "entry_price": updated.entry_price,
+                "adjusted_entry_price": updated.adjusted_entry_price,
                 "outcome_price": updated.outcome_price,
                 "return_pct": updated.return_pct,
                 "horizon_days": updated.horizon_days,
@@ -147,8 +162,13 @@ def attach_horizon_outcomes(
         outcome_price = None
         outcome_timestamp = None
 
-        if frame is not None and not frame.empty and "Close" in frame.columns:
-            close = pd.to_numeric(frame["Close"], errors="coerce")
+        price_column = (
+            "Adj Close"
+            if record.adjusted_entry_price is not None and "Adj Close" in frame.columns
+            else "Close"
+        )
+        if frame is not None and not frame.empty and price_column in frame.columns:
+            close = pd.to_numeric(frame[price_column], errors="coerce")
             close = close.where(close.map(lambda value: pd.notna(value) and math.isfinite(float(value))))
             close = close.where(close > 0).dropna().sort_index()
             close = close.loc[~close.index.duplicated(keep="last")]
