@@ -223,25 +223,33 @@ if isinstance(ml_result, pd.DataFrame):
 
         if st.button("Record Current ML Signals", key="record_ml_signals"):
             records = st.session_state.setdefault("ai_signal_records", [])
+            new_records = []
             for row in filtered.to_dict("records"):
-                records.append(
-                    record_signal(
-                        symbol=str(row["symbol"]),
-                        exchange=exchange,
-                        signal=str(row["signal"]),
-                        probability_up=float(row["probability_up_pct"]) / 100.0,
-                        confidence_pct=float(row["confidence_pct"]),
-                        raw_confidence_pct=float(row["raw_confidence_pct"]),
-                        adaptive_confidence_pct=float(row["confidence_pct"]),
-                        adaptive_adjustment_pct=float(row["adaptive_adjustment_pct"]),
-                        adaptive_samples=int(row["adaptive_samples"]),
-                        validation_pct=float(row["validation_pct"]),
-                        trend_pct=float(row["trend_pct"]),
-                        entry_price=float(row["latest_price"]),
-                        horizon_days=int(st.session_state.get("ai_ml_horizon", scan_horizon)),
-                    )
+                record = record_signal(
+                    symbol=str(row["symbol"]),
+                    exchange=exchange,
+                    signal=str(row["signal"]),
+                    probability_up=float(row["probability_up_pct"]) / 100.0,
+                    confidence_pct=float(row["confidence_pct"]),
+                    raw_confidence_pct=float(row["raw_confidence_pct"]),
+                    adaptive_confidence_pct=float(row["confidence_pct"]),
+                    adaptive_adjustment_pct=float(row["adaptive_adjustment_pct"]),
+                    adaptive_samples=int(row["adaptive_samples"]),
+                    validation_pct=float(row["validation_pct"]),
+                    trend_pct=float(row["trend_pct"]),
+                    entry_price=float(row["latest_price"]),
+                    adjusted_entry_price=float(
+                        row.get("latest_adjusted_price", row["latest_price"])
+                    ),
+                    horizon_days=int(st.session_state.get("ai_ml_horizon", scan_horizon)),
                 )
-            st.session_state["ai_signal_history"] = attach_outcomes(records, {})
+                records.append(record)
+                new_records.append(record)
+            new_history = attach_outcomes(new_records, {})
+            existing_history = st.session_state.get("ai_signal_history")
+            if isinstance(existing_history, pd.DataFrame) and not existing_history.empty:
+                new_history = pd.concat([existing_history, new_history], ignore_index=True)
+            st.session_state["ai_signal_history"] = new_history
             st.success(f"Recorded {len(filtered)} displayed AI signals.")
 
 st.divider()
