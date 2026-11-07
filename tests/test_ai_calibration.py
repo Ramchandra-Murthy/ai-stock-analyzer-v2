@@ -30,6 +30,7 @@ def test_calibration_returns_holdout_metrics_and_bins() -> None:
     assert 0.0 <= metrics.accuracy <= 1.0
     assert 0.0 <= metrics.brier_score <= 1.0
     assert 0.0 <= metrics.calibration_gap <= 1.0
+    assert 0.0 <= metrics.calibration_in_the_large <= 1.0
     assert metrics.test_samples == int(summary["samples"].sum())
 
 
