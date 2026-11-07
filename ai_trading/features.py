@@ -5,6 +5,28 @@ from __future__ import annotations
 import pandas as pd
 
 
+def adjusted_close_series(frame: pd.DataFrame) -> pd.Series:
+    """Use Yahoo's split/dividend-adjusted close when it is available."""
+    column = "Adj Close" if "Adj Close" in frame.columns else "Close"
+    if column not in frame.columns:
+        raise ValueError("market data must contain Close or Adj Close")
+    return pd.to_numeric(frame[column], errors="coerce")
+
+
+def adjusted_ohlc_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    """Apply the adjusted-close factor consistently to raw OHLC fields."""
+    if "Adj Close" not in frame.columns or "Close" not in frame.columns:
+        return frame.copy()
+    raw_close = pd.to_numeric(frame["Close"], errors="coerce")
+    adjusted_close = adjusted_close_series(frame)
+    factor = adjusted_close.div(raw_close.where(raw_close.gt(0.0)))
+    result = frame.copy()
+    for column in ("Open", "High", "Low", "Close"):
+        if column in result.columns:
+            result[column] = pd.to_numeric(result[column], errors="coerce") * factor
+    return result
+
+
 def build_features(frame: pd.DataFrame) -> pd.DataFrame:
     """Build normalized, model-ready market features from OHLCV data."""
     required = {"Close"}
@@ -12,7 +34,7 @@ def build_features(frame: pd.DataFrame) -> pd.DataFrame:
     if missing:
         raise ValueError(f"missing required columns: {sorted(missing)}")
 
-    close = pd.to_numeric(frame["Close"], errors="coerce")
+    close = adjusted_close_series(frame)
     features = pd.DataFrame(index=frame.index)
     features["return_1"] = close.pct_change()
     features["return_5"] = close.pct_change(5)
