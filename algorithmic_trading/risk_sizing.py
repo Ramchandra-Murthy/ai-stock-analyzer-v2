@@ -58,9 +58,7 @@ def risk_based_quantity(
     if isinstance(lot_size, bool) or not isinstance(lot_size, int) or lot_size < 1:
         raise ValueError("lot_size must be a positive integer")
     if capital <= 0 or not 0 < risk_pct <= 0.2 or entry <= 0 or stop <= 0:
-        raise ValueError(
-            "capital, entry, stop must be positive; risk_pct in (0, 0.2]"
-        )
+        raise ValueError("capital, entry, stop must be positive; risk_pct in (0, 0.2]")
     if not 0 < max_position_pct <= 1:
         raise ValueError("max_position_pct must be in (0, 1]")
     per_unit_risk = abs(entry - stop)
