@@ -112,15 +112,21 @@ def evaluate_momentum_walk_forward(
         normalized.append((observation_date, label_end, row))
 
     normalized.sort(key=lambda item: item[0])
-    if len(normalized) < n_splits:
-        raise ValueError("observations must be at least n_splits")
+    date_groups: list[list[tuple[str, str | None, Mapping[str, Any]]]] = []
+    for item in normalized:
+        if not date_groups or date_groups[-1][0][0] != item[0]:
+            date_groups.append([])
+        date_groups[-1].append(item)
+    if len(date_groups) < n_splits:
+        raise ValueError("observations must contain at least n_splits distinct dates")
 
-    quotient, remainder = divmod(len(normalized), n_splits)
+    quotient, remainder = divmod(len(date_groups), n_splits)
     raw_folds: list[list[tuple[str, str | None, Mapping[str, Any]]]] = []
     offset = 0
     for index in range(n_splits):
         fold_size = quotient + (1 if index < remainder else 0)
-        raw_folds.append(normalized[offset : offset + fold_size])
+        fold_groups = date_groups[offset : offset + fold_size]
+        raw_folds.append([item for group in fold_groups for item in group])
         offset += fold_size
 
     folds: list[MomentumWalkForwardFold] = []
