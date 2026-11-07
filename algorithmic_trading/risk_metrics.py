@@ -15,13 +15,25 @@ def normalise_weights(weights: dict[str, float] | pd.Series) -> pd.Series:
     return w / w.sum()
 
 
+def _validated_return_frame(returns: pd.DataFrame, columns: pd.Index) -> pd.DataFrame:
+    """Select numeric return columns and reject missing or impossible observations."""
+    selected = returns[list(columns)].apply(pd.to_numeric, errors="coerce")
+    values = selected.to_numpy(dtype=float)
+    if selected.empty or not np.isfinite(values).all():
+        raise ValueError("selected asset returns must be non-empty, finite and non-missing")
+    if (selected < -1.0).any().any():
+        raise ValueError("asset returns cannot be below -100%")
+    return selected
+
+
 def portfolio_returns(returns: pd.DataFrame, weights: dict[str, float] | pd.Series) -> pd.Series:
     """Daily returns of a constant-weight (daily rebalanced) portfolio."""
     w = normalise_weights(weights)
     missing = [c for c in w.index if c not in returns.columns]
     if missing:
         raise ValueError(f"No return data for: {', '.join(missing)}")
-    return returns[list(w.index)].fillna(0.0).mul(w, axis=1).sum(axis=1)
+    selected = _validated_return_frame(returns, w.index)
+    return selected.mul(w, axis=1).sum(axis=1)
 
 
 def historical_var(returns: pd.Series, level: float = 0.95) -> float:
@@ -45,7 +57,8 @@ def historical_cvar(returns: pd.Series, level: float = 0.95) -> float:
 def risk_contributions(returns: pd.DataFrame, weights: dict[str, float] | pd.Series) -> pd.Series:
     """Share of portfolio variance contributed by each holding (sums to 1)."""
     w = normalise_weights(weights)
-    cov = returns[list(w.index)].cov()
+    selected = _validated_return_frame(returns, w.index)
+    cov = selected.cov()
     marginal = cov @ w
     total = float(w @ marginal)
     if total <= 0:
