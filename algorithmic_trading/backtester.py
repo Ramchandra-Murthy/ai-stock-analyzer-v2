@@ -89,6 +89,7 @@ def run_backtest(
     initial_capital: float = 100_000.0,
     cost_bps: float = 10.0,
     cost_model: IndiaEquityCostModel | None = None,
+    periods_per_year: float = 252.0,
 ) -> tuple[pd.DataFrame, BacktestMetrics]:
     """Backtest target positions using signals from the preceding bar.
 
@@ -102,6 +103,8 @@ def run_backtest(
         raise ValueError("initial_capital must be finite and greater than zero")
     if not np.isfinite(cost_bps) or cost_bps < 0:
         raise ValueError("cost_bps must be finite and non-negative")
+    if not np.isfinite(periods_per_year) or periods_per_year <= 0:
+        raise ValueError("periods_per_year must be finite and positive")
 
     if not prices.index.is_unique or not signals.index.is_unique:
         raise ValueError("prices and signals must not contain duplicate timestamps")
@@ -162,13 +165,18 @@ def run_backtest(
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else None
 
     daily_returns = data["strategy_return"].astype(float)
-    volatility = float(daily_returns.std(ddof=1) * (252.0**0.5)) if len(daily_returns) > 1 else 0.0
+    annualization_factor = float(periods_per_year**0.5)
+    volatility = (
+        float(daily_returns.std(ddof=1) * annualization_factor) if len(daily_returns) > 1 else 0.0
+    )
     daily_std = float(daily_returns.std(ddof=1)) if len(daily_returns) > 1 else 0.0
     mean_daily = float(daily_returns.mean()) if len(daily_returns) else 0.0
     downside = daily_returns[daily_returns < 0]
     downside_std = float((downside.pow(2).mean()) ** 0.5) if not downside.empty else 0.0
-    sharpe_ratio = float(mean_daily / daily_std * (252.0**0.5)) if daily_std > 0 else None
-    sortino_ratio = float(mean_daily / downside_std * (252.0**0.5)) if downside_std > 0 else None
+    sharpe_ratio = float(mean_daily / daily_std * annualization_factor) if daily_std > 0 else None
+    sortino_ratio = (
+        float(mean_daily / downside_std * annualization_factor) if downside_std > 0 else None
+    )
     calmar_ratio = (
         float(cagr / abs(float(data["drawdown"].min())))
         if cagr is not None and float(data["drawdown"].min()) < 0
@@ -196,13 +204,17 @@ def compare_timeframe_backtests(
     initial_capital: float = 100_000.0,
     cost_bps: float = 10.0,
     cost_model: IndiaEquityCostModel | None = None,
+    periods_per_year_by_timeframe: dict[str, float] | None = None,
 ) -> pd.DataFrame:
     """Compare precomputed price/signal pairs across bar sizes.
 
     Each mapping value contains the prices and target-position signals for one
     timeframe. Every candidate uses the same capital and transaction-cost
     assumptions. This function does not resample data or generate signals;
-    callers must supply signals calculated without future information.
+    callers must supply signals calculated without future information. Supply
+    periods_per_year_by_timeframe for each bar size so volatility and risk
+    ratios use the correct annualisation frequency. Unspecified frequencies
+    retain the daily default of 252 periods per year.
     """
     if not timeframe_data:
         raise ValueError("timeframe_data must contain at least one timeframe")
@@ -212,12 +224,18 @@ def compare_timeframe_backtests(
     for timeframe, (prices, signals) in timeframe_data.items():
         if not isinstance(timeframe, str) or not timeframe.strip():
             raise ValueError("timeframe labels must be non-empty strings")
+        periods_per_year = (
+            periods_per_year_by_timeframe.get(timeframe, 252.0)
+            if periods_per_year_by_timeframe is not None
+            else 252.0
+        )
         _, metrics = run_backtest(
             prices,
             signals,
             initial_capital=initial_capital,
             cost_bps=cost_bps,
             cost_model=cost_model,
+            periods_per_year=periods_per_year,
         )
         labels.append(timeframe)
         rows.append(
