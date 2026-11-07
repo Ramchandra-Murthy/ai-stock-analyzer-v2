@@ -287,3 +287,57 @@ def test_download_batch_does_not_enable_hidden_yfinance_retries(monkeypatch) -> 
     )
 
     assert network.retries == 0
+
+
+def test_download_batch_caches_successful_identical_requests(monkeypatch) -> None:
+    from services.cached_download import clear_download_cache
+
+    clear_download_cache()
+    calls: list[dict[str, object]] = []
+
+    def fake_download(**kwargs):
+        calls.append(kwargs)
+        return pd.concat({"CACHE_TEST.NS": _frame()}, axis=1)
+
+    monkeypatch.setattr(market_data.yf, "download", fake_download)
+    args = {
+        "period": "5d",
+        "interval": "1d",
+        "auto_adjust": False,
+        "timeout": 4,
+        "retries": 0,
+    }
+
+    first = market_data._download_batch(["CACHE_TEST.NS"], **args)
+    second = market_data._download_batch(["CACHE_TEST.NS"], **args)
+
+    assert not first.empty
+    assert not second.empty
+    assert len(calls) == 1
+
+
+def test_download_batch_does_not_cache_empty_results_and_retries(monkeypatch) -> None:
+    from services.cached_download import clear_download_cache
+
+    clear_download_cache()
+    calls = 0
+
+    def fake_download(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return pd.DataFrame()
+
+    monkeypatch.setattr(market_data.yf, "download", fake_download)
+    monkeypatch.setattr(market_data, "sleep", lambda _seconds: None)
+
+    result = market_data._download_batch(
+        ["EMPTY_CACHE_TEST.NS"],
+        period="1d",
+        interval="1d",
+        auto_adjust=False,
+        timeout=4,
+        retries=2,
+    )
+
+    assert result.empty
+    assert calls == 3
