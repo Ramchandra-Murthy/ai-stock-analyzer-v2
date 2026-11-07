@@ -20,7 +20,8 @@ def test_allocation_respects_exposure_position_and_cash_limits() -> None:
     )
 
     assert allocation["total_available"] == pytest.approx(50_000.0)
-    assert allocation["per_candidate"] == pytest.approx(20_000.0)
+    assert allocation["per_candidate"] == pytest.approx(12_500.0)
+    assert allocation["per_candidate"] * 4 <= allocation["total_available"]
     assert allocation["reserve_value"] == pytest.approx(10_000.0)
 
 
@@ -84,3 +85,19 @@ def test_risk_warnings_report_excess_exposure_and_low_reserve() -> None:
     )
 
     assert len(warnings) == 2
+
+
+def test_allocation_applies_position_cap_after_dividing_available_budget() -> None:
+    allocation = RiskLimits(
+        max_exposure_pct=80.0,
+        max_position_pct=10.0,
+        cash_reserve_pct=10.0,
+    ).allocation(
+        equity=100_000.0,
+        cash=70_000.0,
+        market_value=30_000.0,
+        candidate_count=2,
+    )
+
+    assert allocation["per_candidate"] == pytest.approx(10_000.0)
+    assert allocation["per_candidate"] * 2 <= allocation["total_available"]
