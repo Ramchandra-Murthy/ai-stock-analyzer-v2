@@ -53,7 +53,6 @@ def split_stale(
     return reference, sorted(stale)
 
 
-
 def filter_stale_frames(
     frames: Mapping[str, pd.DataFrame],
     *,
