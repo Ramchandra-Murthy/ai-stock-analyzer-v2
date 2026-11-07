@@ -41,10 +41,7 @@ def _wilson_interval(wins: int, samples: int, z: float = 1.959963984540054) -> t
     center = (proportion + z * z / (2.0 * samples)) / denominator
     margin = (
         z
-        * math.sqrt(
-            proportion * (1.0 - proportion) / samples
-            + z * z / (4.0 * samples * samples)
-        )
+        * math.sqrt(proportion * (1.0 - proportion) / samples + z * z / (4.0 * samples * samples))
         / denominator
     )
     return (max(0.0, center - margin) * 100.0, min(1.0, center + margin) * 100.0)
@@ -83,7 +80,9 @@ def summarize_signal_performance(history: pd.DataFrame) -> pd.DataFrame:
     required = {"completed", "return_pct", *GROUP_COLUMNS}
     missing = required.difference(history.columns)
     if missing:
-        raise ValueError(f"Signal history is missing required columns: {', '.join(sorted(missing))}")
+        raise ValueError(
+            f"Signal history is missing required columns: {', '.join(sorted(missing))}"
+        )
 
     completed = history.loc[history["completed"].fillna(False)].copy()
     completed["return_pct"] = pd.to_numeric(completed["return_pct"], errors="coerce")
@@ -117,12 +116,10 @@ def summarize_signal_performance(history: pd.DataFrame) -> pd.DataFrame:
                 "win_rate_ci_high_pct": ci_high,
                 "avg_return_pct": float(returns.mean()),
                 "median_return_pct": float(returns.median()),
-                "avg_win_pct": float(returns.loc[returns > 0.0].mean())
-                if wins
-                else float("nan"),
-                "avg_loss_pct": float(returns.loc[returns < 0.0].mean())
-                if losses
-                else float("nan"),
+                "avg_win_pct": float(returns.loc[returns > 0.0].mean()) if wins else float("nan"),
+                "avg_loss_pct": (
+                    float(returns.loc[returns < 0.0].mean()) if losses else float("nan")
+                ),
                 "expectancy_pct": float(returns.mean()),
                 "profit_factor": gross_profit / gross_loss if gross_loss > 0.0 else float("nan"),
                 "max_drawdown_pct": _max_drawdown_pct(returns),
