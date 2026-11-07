@@ -99,3 +99,45 @@ def test_equity_rejects_non_finite_or_non_positive_mark_prices(price: float) -> 
 
     with pytest.raises(ValueError, match="price for RELIANCE must be finite and positive"):
         portfolio.equity({"RELIANCE": price})
+
+
+def test_equity_rejects_missing_marks_for_open_positions() -> None:
+    portfolio = PaperPortfolio(initial_cash=100_000.0)
+    portfolio.execute("RELIANCE", "BUY", 10, 100.0)
+
+    with pytest.raises(ValueError, match="missing mark prices for open positions: RELIANCE"):
+        portfolio.equity({})
+
+
+def test_paper_cycle_fails_before_mutating_when_existing_holding_is_unpriced() -> None:
+    portfolio = PaperPortfolio(initial_cash=100_000.0)
+    portfolio.execute("TCS", "BUY", 10, 100.0)
+    before_cash = portfolio.cash
+    signals = pd.DataFrame([{"symbol": "NEW", "signal": "LONG"}])
+
+    with pytest.raises(ValueError, match="missing mark prices for open positions: TCS"):
+        apply_ml_signals(portfolio, signals, {"NEW": 50.0})
+
+    assert portfolio.cash == before_cash
+    assert portfolio.positions == {"TCS": 10}
+    assert len(portfolio.trades) == 1
+
+
+@pytest.mark.parametrize("quantity", [0, -1, 1.5, float("nan"), float("inf"), True])
+def test_execute_rejects_invalid_share_quantities(quantity) -> None:
+    portfolio = PaperPortfolio(initial_cash=100_000.0)
+
+    with pytest.raises(ValueError, match="quantity must be a positive whole number"):
+        portfolio.execute("RELIANCE", "BUY", quantity, 100.0)
+
+
+@pytest.mark.parametrize("cash", [float("nan"), float("inf"), float("-inf"), -1.0])
+def test_portfolio_rejects_invalid_initial_cash_balance(cash: float) -> None:
+    with pytest.raises(ValueError, match="cash must be finite and non-negative"):
+        PaperPortfolio(initial_cash=100_000.0, cash=cash)
+
+
+@pytest.mark.parametrize("initial_cash", [float("nan"), float("inf"), float("-inf"), 0.0, -1.0])
+def test_portfolio_rejects_invalid_initial_equity(initial_cash: float) -> None:
+    with pytest.raises(ValueError, match="initial_cash must be finite and positive"):
+        PaperPortfolio(initial_cash=initial_cash)
