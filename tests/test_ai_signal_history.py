@@ -218,7 +218,6 @@ def test_horizon_outcome_uses_adjusted_basis_across_a_split() -> None:
     assert history.loc[0, "return_pct"] == pytest.approx(0.0)
 
 
-
 def test_daily_bar_on_signal_date_counts_when_signal_precedes_market_close() -> None:
     from zoneinfo import ZoneInfo
 
