@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from math import isfinite
+from numbers import Integral
 
 import pandas as pd
 
@@ -46,10 +47,10 @@ class PaperPortfolio:
     equity_history: list[EquitySnapshot] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        if self.initial_cash <= 0:
-            raise ValueError("initial_cash must be positive")
-        if self.cash <= 0:
-            self.cash = self.initial_cash
+        if not isfinite(self.initial_cash) or self.initial_cash <= 0:
+            raise ValueError("initial_cash must be finite and positive")
+        if not isfinite(self.cash) or self.cash < 0:
+            raise ValueError("cash must be finite and non-negative")
 
     def equity(self, prices: dict[str, float]) -> float:
         """Mark current positions to supplied latest prices."""
@@ -87,8 +88,12 @@ class PaperPortfolio:
         side = str(side).upper()
         price = float(price)
 
-        if quantity <= 0 or not isfinite(price) or price <= 0:
-            raise ValueError("quantity must be positive and price must be finite and positive")
+        if isinstance(quantity, bool) or not isinstance(quantity, Integral) or quantity <= 0:
+            raise ValueError("quantity must be a positive whole number")
+        if not symbol:
+            raise ValueError("symbol must not be empty")
+        if not isfinite(price) or price <= 0:
+            raise ValueError("price must be finite and positive")
         if side not in {"BUY", "SELL"}:
             raise ValueError("side must be BUY or SELL")
 
@@ -136,10 +141,10 @@ def apply_ml_signals(
     risk_limits: RiskLimits | None = None,
 ) -> list[PaperTrade]:
     """Apply LONG/SHORT/FLAT ML signals to a long-only paper portfolio."""
-    if not 0.0 < capital_fraction <= 1.0:
-        raise ValueError("capital_fraction must be between 0 and 1")
-    if max_positions < 1:
-        raise ValueError("max_positions must be at least 1")
+    if not isfinite(capital_fraction) or not 0.0 < capital_fraction <= 1.0:
+        raise ValueError("capital_fraction must be finite and between 0 and 1")
+    if isinstance(max_positions, bool) or not isinstance(max_positions, Integral) or max_positions < 1:
+        raise ValueError("max_positions must be a positive integer")
 
     # Do not mutate holdings or size new entries from an understated portfolio
     # value when any existing position lacks a current mark.
