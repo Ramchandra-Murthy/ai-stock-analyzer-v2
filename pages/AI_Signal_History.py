@@ -6,8 +6,8 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.signal_history import attach_horizon_outcomes, summarize_outcomes
-from services.resilient_market_data import download_symbol_frames
 from components.disclaimer import show_disclaimer
+from services.resilient_market_data import download_symbol_frames
 
 st.set_page_config(page_title="AI Signal History", page_icon="🗂️", layout="wide")
 
