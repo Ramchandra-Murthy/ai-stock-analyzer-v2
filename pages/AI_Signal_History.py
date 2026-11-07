@@ -13,6 +13,11 @@ from ai_trading.signal_history_store import (
     signal_history_backend,
 )
 from ai_trading.signal_performance import summarize_signal_performance
+from ai_trading.signal_trade_evaluation import (
+    evaluate_signal_trades,
+    summarize_signal_trade_evaluation,
+)
+from algorithmic_trading.trading_costs import india_cost_model
 from components.disclaimer import show_disclaimer
 from services.resilient_market_data import download_symbol_frames
 
@@ -150,6 +155,61 @@ else:
         file_name="signal_performance_report.csv",
         mime="text/csv",
     )
+
+st.subheader("Cost-Adjusted Trade Evaluation")
+st.caption(
+    "Estimates one entry and one exit for each completed directional signal. "
+    "Costs use configurable NSE equity assumptions; this is not a fill-level or "
+    "portfolio backtest. Short cash-equity signals may not be held overnight in India."
+)
+cost_product_col, cost_slippage_col, cost_brokerage_col = st.columns(3)
+cost_product = cost_product_col.selectbox(
+    "Equity product assumption",
+    options=["delivery", "intraday"],
+    format_func=lambda value: "Delivery" if value == "delivery" else "Intraday",
+)
+cost_slippage = cost_slippage_col.number_input(
+    "Slippage (bps per side)",
+    min_value=0.0,
+    max_value=200.0,
+    value=5.0,
+    step=1.0,
+)
+default_brokerage = 0.0 if cost_product == "delivery" else 3.0
+cost_brokerage = cost_brokerage_col.number_input(
+    "Brokerage (bps per side)",
+    min_value=0.0,
+    max_value=100.0,
+    value=default_brokerage,
+    step=0.5,
+)
+cost_model = india_cost_model(
+    cost_product,
+    brokerage_bps=cost_brokerage,
+    slippage_bps=cost_slippage,
+)
+trade_evaluation = evaluate_signal_trades(history, cost_model)
+trade_summary = summarize_signal_trade_evaluation(trade_evaluation)
+if trade_summary.empty:
+    st.info("Cost-adjusted metrics require completed LONG or SHORT outcomes.")
+else:
+    st.dataframe(trade_summary, use_container_width=True, hide_index=True)
+    st.download_button(
+        "Download Cost-Adjusted Trade Report CSV",
+        data=trade_evaluation.to_csv(index=False).encode("utf-8"),
+        file_name="cost_adjusted_signal_trades.csv",
+        mime="text/csv",
+    )
+    if trade_evaluation["excess_return_pct"].notna().any():
+        st.caption(
+            "Benchmark excess is direction-adjusted and shown only where a matching "
+            "benchmark_return_pct observation is present in the history."
+        )
+    else:
+        st.caption(
+            "Benchmark comparison is pending matching benchmark-return observations; "
+            "no benchmark performance is inferred or fabricated."
+        )
 
 completed = history.loc[history["completed"].fillna(False)].copy()
 directional = completed.loc[pd.to_numeric(completed["return_pct"], errors="coerce").notna()]
