@@ -102,7 +102,6 @@ def _download_single(
     diagnostics: list[str] | None = None,
 ) -> pd.DataFrame:
     """Recover one missing ticker through the direct Ticker.history endpoint."""
-    _configure_yfinance()
     retry_count = max(0, int(retries))
     for attempt in range(retry_count + 1):
         try:
