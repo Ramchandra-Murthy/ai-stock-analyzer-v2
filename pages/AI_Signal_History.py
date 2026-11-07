@@ -100,10 +100,16 @@ if missing_market_returns.any() and {"entry_price", "outcome_price"}.issubset(hi
         entry = pd.Series(float("nan"), index=history.index)
     entry = entry.fillna(pd.to_numeric(history["entry_price"], errors="coerce"))
     outcome = pd.to_numeric(history["outcome_price"], errors="coerce")
-    computed_market_returns = (outcome / entry - 1.0) * 100.0
-    history.loc[missing_market_returns, "market_return_pct"] = computed_market_returns.loc[
+    valid_prices = (
         missing_market_returns
-    ]
+        & entry.map(lambda value: pd.notna(value) and value > 0.0)
+        & outcome.map(lambda value: pd.notna(value) and value > 0.0)
+    )
+    computed_market_returns = pd.Series(float("nan"), index=history.index)
+    computed_market_returns.loc[valid_prices] = (
+        outcome.loc[valid_prices] / entry.loc[valid_prices] - 1.0
+    ) * 100.0
+    history.loc[valid_prices, "market_return_pct"] = computed_market_returns.loc[valid_prices]
 neutral_mask = history["signal"].eq("NEUTRAL")
 history.loc[neutral_mask, "return_pct"] = float("nan")
 
