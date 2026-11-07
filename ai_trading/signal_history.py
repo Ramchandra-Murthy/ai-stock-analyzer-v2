@@ -250,9 +250,7 @@ def summarize_outcomes(history: pd.DataFrame) -> pd.DataFrame:
     if "market_return_pct" not in completed:
         completed["market_return_pct"] = pd.NA
     completed["return_pct"] = pd.to_numeric(completed["return_pct"], errors="coerce")
-    completed["market_return_pct"] = pd.to_numeric(
-        completed["market_return_pct"], errors="coerce"
-    )
+    completed["market_return_pct"] = pd.to_numeric(completed["market_return_pct"], errors="coerce")
 
     rows = []
     for signal, group in completed.groupby("signal", sort=True):
@@ -270,9 +268,7 @@ def summarize_outcomes(history: pd.DataFrame) -> pd.DataFrame:
                     else float("nan")
                 ),
                 "avg_return_pct": (
-                    float(strategy_returns.mean())
-                    if not strategy_returns.empty
-                    else float("nan")
+                    float(strategy_returns.mean()) if not strategy_returns.empty else float("nan")
                 ),
                 "market_avg_return_pct": (
                     float(market_returns.mean()) if not market_returns.empty else float("nan")
