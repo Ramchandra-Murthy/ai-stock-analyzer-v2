@@ -33,19 +33,54 @@ class BacktestMetrics:
 
 
 def _trade_returns(data: pd.DataFrame) -> pd.Series:
-    """Return realized return for each directional non-zero position segment."""
-    position = data["position"]
-    active = position.ne(0)
-    starts = active & (~active.shift(1, fill_value=False) | position.ne(position.shift(1)))
+    """Return net performance for each continuous directional position episode.
+
+    Rebalancing within the same direction stays in one trade. Closing costs are
+    assigned to the trade being closed; on a reversal, turnover costs are split
+    between the closing and opening directions in proportion to their sizes.
+    """
+    position = pd.to_numeric(data["position"], errors="coerce").fillna(0.0)
+    previous = position.shift(1).fillna(0.0)
+    active = position.ne(0.0)
+    reversals = active & previous.ne(0.0) & (np.sign(position) != np.sign(previous))
+    starts = active & (previous.eq(0.0) | reversals)
     trade_id = starts.cumsum()
-    active_returns = data.loc[active, "strategy_return"]
+    active_returns = pd.to_numeric(data.loc[active, "strategy_return"], errors="coerce")
 
     if active_returns.empty:
         return pd.Series(dtype=float)
 
-    # Compound each trade's bar returns with one vectorised grouped product. The earlier
-    # groupby-apply called a Python lambda per trade, which dominated every backtest.
-    return (1.0 + active_returns).groupby(trade_id.loc[active]).prod() - 1.0
+    transaction_cost = pd.to_numeric(
+        data.get("transaction_cost", pd.Series(0.0, index=data.index)),
+        errors="coerce",
+    ).fillna(0.0)
+    turnover = (position - previous).abs()
+    closing_fraction = previous.abs().div(turnover.replace(0.0, np.nan)).fillna(0.0)
+    reversal_closing_cost = transaction_cost.where(reversals, 0.0) * closing_fraction
+
+    # strategy_return on a reversal includes both sides' turnover costs. Remove
+    # the closing portion from the new trade; it is applied to the old trade below.
+    active_returns = active_returns.copy()
+    active_returns.loc[reversals] += reversal_closing_cost.loc[reversals]
+
+    exits = (~active) & previous.ne(0.0)
+    closing_events = exits | reversals
+    closing_cost = transaction_cost.where(exits, 0.0) + reversal_closing_cost.where(reversals, 0.0)
+    closing_trade_id = trade_id.shift(1).where(closing_events)
+    closing_factors = (
+        pd.DataFrame(
+            {
+                "trade_id": closing_trade_id.loc[closing_events].astype(int),
+                "factor": 1.0 - closing_cost.loc[closing_events],
+            }
+        )
+        .groupby("trade_id")["factor"]
+        .prod()
+    )
+
+    trade_growth = (1.0 + active_returns).groupby(trade_id.loc[active]).prod()
+    trade_growth = trade_growth.mul(closing_factors.reindex(trade_growth.index, fill_value=1.0))
+    return trade_growth - 1.0
 
 
 def run_backtest(

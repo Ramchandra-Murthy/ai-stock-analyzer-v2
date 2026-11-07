@@ -1,4 +1,4 @@
-"""The vectorised ``_trade_returns`` must match the original groupby-apply exactly."""
+"""Trade-return accounting includes closing costs and directional reversals."""
 
 import numpy as np
 import pandas as pd
@@ -8,23 +8,53 @@ from algorithmic_trading.backtester import _trade_returns
 
 
 def _reference(data: pd.DataFrame) -> pd.Series:
-    """The original implementation (slow Python lambda per trade), kept as the oracle."""
-    position = data["position"]
-    active = position.ne(0)
-    starts = active & (~active.shift(1, fill_value=False) | position.ne(position.shift(1)))
-    trade_id = starts.cumsum()
-    active_returns = data.loc[active, "strategy_return"]
-    if active_returns.empty:
-        return pd.Series(dtype=float)
-    return active_returns.groupby(trade_id.loc[active]).apply(
-        lambda values: (1.0 + values).prod() - 1.0
-    )
+    """Small loop oracle for directional trade grouping and closing-cost allocation."""
+    results = []
+    equity = None
+    previous = 0.0
+    costs = data.get("transaction_cost", pd.Series(0.0, index=data.index))
+    for position, strategy_return, transaction_cost in zip(
+        data["position"], data["strategy_return"], costs, strict=True
+    ):
+        current = float(position)
+        cost = float(transaction_cost) if pd.notna(transaction_cost) else 0.0
+        bar_return = float(strategy_return) if pd.notna(strategy_return) else 0.0
+
+        if previous == 0.0 and current != 0.0:
+            equity = 1.0 + bar_return
+        elif previous != 0.0 and current == 0.0:
+            equity *= 1.0 - cost
+            results.append(equity - 1.0)
+            equity = None
+        elif previous != 0.0 and current != 0.0 and np.sign(previous) != np.sign(current):
+            closing_cost = cost * abs(previous) / abs(current - previous)
+            equity *= 1.0 - closing_cost
+            results.append(equity - 1.0)
+            equity = 1.0 + bar_return + closing_cost
+        elif current != 0.0:
+            equity *= 1.0 + bar_return
+
+        previous = current
+
+    if equity is not None:
+        results.append(equity - 1.0)
+    result = pd.Series(results, index=range(1, len(results) + 1), dtype=float)
+    if not result.empty:
+        result.index.name = "position"
+    return result
 
 
-def _frame(position, returns) -> pd.DataFrame:
+def _frame(position, returns, transaction_cost=None) -> pd.DataFrame:
     index = pd.bdate_range("2024-01-01", periods=len(position))
+    costs = (
+        np.zeros(len(position)) if transaction_cost is None else np.asarray(transaction_cost, float)
+    )
     return pd.DataFrame(
-        {"position": np.asarray(position, float), "strategy_return": np.asarray(returns, float)},
+        {
+            "position": np.asarray(position, float),
+            "strategy_return": np.asarray(returns, float),
+            "transaction_cost": costs,
+        },
         index=index,
     )
 
@@ -62,3 +92,27 @@ def test_returns_empty_float_series_when_flat() -> None:
     result = _trade_returns(_frame([0, 0, 0], [0.01, 0.02, 0.03]))
 
     assert result.empty and result.dtype == float
+
+
+def test_exit_cost_is_allocated_to_the_closed_trade() -> None:
+    data = _frame(
+        [0, 1, 1, 0],
+        [0.0, 0.005, 0.0, -0.01],
+        [0.0, 0.01, 0.0, 0.01],
+    )
+
+    result = _trade_returns(data)
+
+    assert result.iloc[0] == pytest.approx((1.005 * 0.99) - 1.0)
+
+
+def test_reversal_splits_turnover_cost_between_closed_and_new_trade() -> None:
+    data = _frame(
+        [0, 1, -1, 0],
+        [0.0, 0.09, 0.08, -0.01],
+        [0.0, 0.01, 0.02, 0.01],
+    )
+
+    result = _trade_returns(data)
+
+    assert result.tolist() == pytest.approx([0.0791, 0.0791])
