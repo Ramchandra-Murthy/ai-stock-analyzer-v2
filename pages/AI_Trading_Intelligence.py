@@ -226,20 +226,20 @@ if isinstance(ml_result, pd.DataFrame):
             new_records = []
             for row in filtered.to_dict("records"):
                 record = record_signal(
-                        symbol=str(row["symbol"]),
-                        exchange=exchange,
-                        signal=str(row["signal"]),
-                        probability_up=float(row["probability_up_pct"]) / 100.0,
-                        confidence_pct=float(row["confidence_pct"]),
-                        raw_confidence_pct=float(row["raw_confidence_pct"]),
-                        adaptive_confidence_pct=float(row["confidence_pct"]),
-                        adaptive_adjustment_pct=float(row["adaptive_adjustment_pct"]),
-                        adaptive_samples=int(row["adaptive_samples"]),
-                        validation_pct=float(row["validation_pct"]),
-                        trend_pct=float(row["trend_pct"]),
-                        entry_price=float(row["latest_price"]),
-                        horizon_days=int(st.session_state.get("ai_ml_horizon", scan_horizon)),
-                    )
+                    symbol=str(row["symbol"]),
+                    exchange=exchange,
+                    signal=str(row["signal"]),
+                    probability_up=float(row["probability_up_pct"]) / 100.0,
+                    confidence_pct=float(row["confidence_pct"]),
+                    raw_confidence_pct=float(row["raw_confidence_pct"]),
+                    adaptive_confidence_pct=float(row["confidence_pct"]),
+                    adaptive_adjustment_pct=float(row["adaptive_adjustment_pct"]),
+                    adaptive_samples=int(row["adaptive_samples"]),
+                    validation_pct=float(row["validation_pct"]),
+                    trend_pct=float(row["trend_pct"]),
+                    entry_price=float(row["latest_price"]),
+                    horizon_days=int(st.session_state.get("ai_ml_horizon", scan_horizon)),
+                )
                 records.append(record)
                 new_records.append(record)
             new_history = attach_outcomes(new_records, {})
