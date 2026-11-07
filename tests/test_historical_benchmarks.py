@@ -38,7 +38,7 @@ def test_intraday_signal_uses_previous_completed_close_and_exact_outcome_session
     result = attach_historical_benchmarks(_history(), frames)
 
     assert result.loc[0, "benchmark_return_pct"] == pytest.approx(5.0)
-    assert result.loc[0, "benchmark_status"] == "matched"
+    assert result.loc[0, "benchmark_status"] == "matched_daily_close_proxy"
     assert result.loc[0, "sector"] == "IT services"
     assert result.loc[0, "sector_benchmark_name"] == "^CNXIT"
     assert result.loc[0, "sector_benchmark_return_pct"] == pytest.approx(5.0)
@@ -52,7 +52,7 @@ def test_after_close_signal_can_use_same_day_completed_close():
     result = attach_historical_benchmarks(history, frames)
 
     assert result.loc[0, "benchmark_return_pct"] == pytest.approx((105 / 103 - 1) * 100)
-    assert result.loc[0, "benchmark_status"] == "matched"
+    assert result.loc[0, "benchmark_status"] == "matched_daily_close_proxy"
 
 
 def test_missing_exact_outcome_session_is_not_filled_from_an_earlier_close():
