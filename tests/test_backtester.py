@@ -209,8 +209,6 @@ def test_compare_timeframe_backtests_rejects_empty_input() -> None:
     with pytest.raises(ValueError, match="at least one timeframe"):
         compare_timeframe_backtests({})
 
-
-
 def test_trade_metrics_include_exit_costs_in_win_rate_and_profit_factor() -> None:
     index = pd.date_range("2026-01-01", periods=4, freq="D")
     prices = pd.Series([100.0, 101.5, 101.5, 101.5], index=index)
