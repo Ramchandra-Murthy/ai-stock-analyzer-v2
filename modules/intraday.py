@@ -2105,6 +2105,36 @@ def show() -> None:
             "No intraday candles were returned. Verify the symbol/exchange and try again during market hours."
         )
         return
+    quality_frame = intraday.copy()
+    if isinstance(quality_frame.columns, pd.MultiIndex):
+        quality_frame.columns = quality_frame.columns.get_level_values(0)
+    checked_at = datetime.now(IST)
+    interval_minutes = int(interval[:-1])
+    quality = assess_intraday_candles(
+        quality_frame,
+        interval_minutes=interval_minutes,
+        retrieved_at=checked_at,
+        max_quote_age_seconds=max(180, interval_minutes * 180),
+        market_session_active=_market_session_is_open(checked_at),
+    )
+    st.caption(
+        "Candle integrity: "
+        f"{quality['status']} · {quality['row_count']} rows · "
+        f"{quality['duplicate_timestamps']} duplicate timestamps · "
+        f"{quality['missing_intervals']} missing intervals · "
+        f"quote age {quality['quote_age_seconds']} seconds"
+    )
+    if quality["missing_intervals"]:
+        st.warning(
+            f"{quality['missing_intervals']} missing candle intervals detected. "
+            "These are reported, not filled with synthetic candles."
+        )
+    if not quality["usable"]:
+        st.error("Intraday analysis stopped because the source candles failed integrity checks.")
+        for reason in quality["errors"]:
+            st.write(f"- {reason}")
+        return
+
     try:
         data = _prepare(intraday)
     except ValueError as exc:
@@ -2118,19 +2148,9 @@ def show() -> None:
     if timestamp.tzinfo is None:
         timestamp = timestamp.tz_localize("UTC")
     timestamp_ist = timestamp.tz_convert(IST)
-    now_ist = datetime.now(IST)
-    age_minutes = max(0, (now_ist - timestamp_ist.to_pydatetime()).total_seconds() / 60)
     st.caption(
-        f"Latest candle: {timestamp_ist:%d %b %Y, %H:%M IST} · Retrieved: {now_ist:%d %b %Y, %H:%M IST}"
+        f"Latest candle: {timestamp_ist:%d %b %Y, %H:%M IST} · Retrieved: {checked_at:%d %b %Y, %H:%M IST}"
     )
-    if age_minutes > max(60, int(interval[:-1]) * 3):
-        st.warning(
-            "Data freshness check: the latest candle is older than expected. This may be normal outside market hours; verify provider timestamps."
-        )
-    else:
-        st.success(
-            "Data freshness check: latest candle is recent relative to the selected interval."
-        )
     missing = (
         intraday[[c for c in ["Open", "High", "Low", "Close", "Volume"] if c in intraday.columns]]
         .isna()
