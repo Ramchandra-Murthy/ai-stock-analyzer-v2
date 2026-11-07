@@ -20,6 +20,7 @@ def test_u_shape_is_heavier_at_the_ends():
     p = u_shaped_profile(11)
     assert p[0] > p[5] < p[-1] and p.sum() == pytest.approx(1.0)
 
+
 def test_pov_respects_participation_and_can_leave_a_remainder():
     out = pov_schedule(10_000, [1000] * 5, 0.10)
     assert list(out) == [100] * 5  # 10% of each slice; 9,500 shares unfilled
