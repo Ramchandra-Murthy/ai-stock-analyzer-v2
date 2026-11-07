@@ -64,6 +64,28 @@ def test_neutral_records_market_movement_without_fabricating_strategy_return():
     assert history.loc[0, "market_return_pct"] == pytest.approx(10.0)
 
 
+def test_invalid_outcome_prices_remain_pending():
+    record = record_signal(
+        symbol="INFY",
+        exchange="NSE",
+        signal="LONG",
+        probability_up=0.7,
+        confidence_pct=70.0,
+        validation_pct=65.0,
+        trend_pct=60.0,
+        entry_price=100.0,
+        horizon_days=5,
+    )
+    history = attach_outcomes(
+        [record],
+        {"INFY": float("nan")},
+    )
+
+    assert bool(history.loc[0, "completed"]) is False
+    assert pd.isna(history.loc[0, "outcome_price"])
+    assert pd.isna(history.loc[0, "return_pct"])
+
+
 def test_neutral_horizon_outcome_keeps_actual_market_return():
     from ai_trading.signal_history import attach_horizon_outcomes
 
