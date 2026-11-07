@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import json
 import logging
-from contextlib import closing
 import os
 import sqlite3
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import closing
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
