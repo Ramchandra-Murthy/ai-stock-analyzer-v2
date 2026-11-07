@@ -3,7 +3,6 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
-
 from ai_trading.historical_benchmarks import attach_historical_benchmarks
 
 
