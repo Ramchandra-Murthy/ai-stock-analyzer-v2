@@ -53,3 +53,16 @@ def test_invalid_regime_inputs_are_rejected() -> None:
             roc_auc=0.5,
             regime_strength=1.5,
         )
+
+
+@pytest.mark.parametrize("trend_score", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_trend_score_is_rejected(trend_score: float) -> None:
+    with pytest.raises(ValueError, match="trend_score must be finite"):
+        build_regime_aware_decision(
+            probability_up=0.80,
+            accuracy=0.70,
+            roc_auc=0.75,
+            trend_score=trend_score,
+            regime="BULLISH",
+            regime_strength=0.80,
+        )
