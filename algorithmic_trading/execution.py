@@ -24,10 +24,24 @@ def _check_side(side: str) -> int:
     return 1 if side == BUY else -1
 
 
+def _whole_share_count(shares: int) -> int:
+    """Validate a non-negative whole-share order quantity without truncation."""
+    if isinstance(shares, (bool, np.bool_)):
+        raise ValueError("shares must be a non-negative whole number.")
+    try:
+        numeric = float(shares)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("shares must be a non-negative whole number.") from exc
+    if not np.isfinite(numeric) or numeric < 0 or not numeric.is_integer():
+        raise ValueError("shares must be a non-negative whole number.")
+    return int(numeric)
+
+
 def _apportion(total: int, weights: np.ndarray) -> np.ndarray:
     """Split ``total`` whole shares by ``weights`` (largest remainder; sums exactly)."""
     w = np.asarray(weights, dtype=float)
-    if total < 0 or w.size == 0 or not np.all(np.isfinite(w)) or (w < 0).any() or w.sum() <= 0:
+    total = _whole_share_count(total)
+    if w.size == 0 or not np.all(np.isfinite(w)) or (w < 0).any() or w.sum() <= 0:
         raise ValueError("Need a non-negative share count and positive finite weights.")
     exact = total * w / w.sum()
     base = np.floor(exact).astype(int)
@@ -49,12 +63,12 @@ def twap_schedule(shares: int, slices: int) -> np.ndarray:
     """Equal shares per slice."""
     if slices < 1:
         raise ValueError("slices must be at least 1.")
-    return _apportion(int(shares), np.ones(slices))
+    return _apportion(_whole_share_count(shares), np.ones(slices))
 
 
 def vwap_schedule(shares: int, volume_profile) -> np.ndarray:
     """Shares in proportion to the expected volume in each slice."""
-    return _apportion(int(shares), np.asarray(volume_profile, dtype=float))
+    return _apportion(_whole_share_count(shares), np.asarray(volume_profile, dtype=float))
 
 
 def pov_schedule(shares: int, volumes, participation: float) -> np.ndarray:
@@ -64,7 +78,7 @@ def pov_schedule(shares: int, volumes, participation: float) -> np.ndarray:
     vols = np.asarray(volumes, dtype=float)
     if (vols < 0).any() or not np.all(np.isfinite(vols)):
         raise ValueError("volumes must be finite and non-negative.")
-    remaining, out = int(shares), np.zeros(len(vols), dtype=int)
+    remaining, out = _whole_share_count(shares), np.zeros(len(vols), dtype=int)
     for i, volume in enumerate(vols):
         take = min(remaining, int(participation * volume))
         out[i], remaining = take, remaining - take
