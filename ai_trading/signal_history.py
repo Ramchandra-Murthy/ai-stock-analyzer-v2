@@ -145,7 +145,6 @@ def attach_outcomes(
     return pd.DataFrame(rows)
 
 
-
 def attach_horizon_outcomes(
     records: list[SignalRecord],
     frames: dict[str, pd.DataFrame],
@@ -213,6 +212,7 @@ def attach_horizon_outcomes(
             }
         )
     return pd.DataFrame(rows)
+
 
 def summarize_outcomes(history: pd.DataFrame) -> pd.DataFrame:
     """Summarize completed signal outcomes by signal type."""
