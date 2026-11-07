@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 
 import pandas as pd
 
@@ -183,7 +183,15 @@ def attach_horizon_outcomes(
                     signal_time = signal_time.tz_localize(close.index.tz)
                 else:
                     signal_time = signal_time.tz_convert(close.index.tz)
-                future = close.loc[close.index > signal_time]
+                # Yahoo daily bars are labelled by session date (often midnight),
+                # not by the time their closing price became observable. Include
+                # the signal date only when the signal predates the NSE/BSE close.
+                session_dates = close.index.normalize()
+                signal_date = signal_time.normalize()
+                future_mask = session_dates > signal_date
+                if signal_time.time() < time(15, 30):
+                    future_mask |= session_dates == signal_date
+                future = close.loc[future_mask]
                 if len(future) >= record.horizon_days:
                     outcome_timestamp = future.index[record.horizon_days - 1]
                     outcome_price = float(future.iloc[record.horizon_days - 1])
