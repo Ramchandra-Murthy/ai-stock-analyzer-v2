@@ -7,7 +7,11 @@ from dataclasses import dataclass
 import pandas as pd
 from sklearn.metrics import accuracy_score, brier_score_loss
 
-from ai_trading.ml_model import make_training_dataset, train_model
+from ai_trading.ml_model import (
+    expected_calibration_error,
+    make_training_dataset,
+    train_model,
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +25,7 @@ class CalibrationMetrics:
     calibration_gap: float
     train_samples: int
     test_samples: int
+    calibration_in_the_large: float
 
 
 def evaluate_calibration(
@@ -53,7 +58,8 @@ def evaluate_calibration(
     predictions = (probabilities >= 0.5).astype(int)
     average_probability = float(probabilities.mean())
     actual_positive_rate = float(y_test.mean())
-    calibration_gap = abs(average_probability - actual_positive_rate)
+    calibration_gap = expected_calibration_error(y_test, probabilities, bins=bins)
+    calibration_in_the_large = abs(average_probability - actual_positive_rate)
     metrics = CalibrationMetrics(
         accuracy=float(accuracy_score(y_test, predictions)),
         brier_score=float(brier_score_loss(y_test, probabilities)),
@@ -62,6 +68,7 @@ def evaluate_calibration(
         calibration_gap=calibration_gap,
         train_samples=validation.train_samples,
         test_samples=test_samples,
+        calibration_in_the_large=calibration_in_the_large,
     )
 
     edges = [i / bins for i in range(bins + 1)]
@@ -126,6 +133,9 @@ def monitor_calibration_frames(
                 "average_probability_pct": round(metrics.average_probability * 100, 1),
                 "actual_positive_rate_pct": round(metrics.actual_positive_rate * 100, 1),
                 "calibration_gap_pct": round(metrics.calibration_gap * 100, 1),
+                "calibration_in_the_large_pct": round(
+                    metrics.calibration_in_the_large * 100, 1
+                ),
                 "train_samples": metrics.train_samples,
                 "test_samples": metrics.test_samples,
             }
@@ -139,6 +149,7 @@ def monitor_calibration_frames(
         "average_probability_pct",
         "actual_positive_rate_pct",
         "calibration_gap_pct",
+        "calibration_in_the_large_pct",
         "train_samples",
         "test_samples",
     ]
