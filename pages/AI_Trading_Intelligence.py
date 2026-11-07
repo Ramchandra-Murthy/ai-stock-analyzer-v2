@@ -11,6 +11,11 @@ from ai_trading.features import build_features
 from ai_trading.ml_model import predict_latest, train_model
 from ai_trading.ml_scanner import scan_universe as scan_ml_universe
 from ai_trading.signal_history import attach_outcomes, record_signal
+from ai_trading.signal_history_store import (
+    SignalHistoryStoreError,
+    load_signal_snapshot,
+    save_signal_snapshot,
+)
 from ai_trading.walk_forward import walk_forward_backtest
 from components.disclaimer import show_disclaimer
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
@@ -21,6 +26,16 @@ st.set_page_config(page_title="AI Trading Intelligence", page_icon="🧠", layou
 st.title("🧠 AI Trading Intelligence")
 show_disclaimer()
 st.caption("AI-oriented market feature and signal research. No broker orders are submitted.")
+
+if not st.session_state.get("ai_signal_store_loaded", False):
+    try:
+        stored_records, stored_history = load_signal_snapshot()
+        st.session_state["ai_signal_records"] = stored_records
+        st.session_state["ai_signal_history"] = stored_history
+    except SignalHistoryStoreError as exc:
+        st.warning(f"Persistent signal history is unavailable: {exc}")
+        st.session_state.setdefault("ai_signal_records", [])
+    st.session_state["ai_signal_store_loaded"] = True
 
 left, right = st.columns(2)
 with left:
@@ -250,7 +265,12 @@ if isinstance(ml_result, pd.DataFrame):
             if isinstance(existing_history, pd.DataFrame) and not existing_history.empty:
                 new_history = pd.concat([existing_history, new_history], ignore_index=True)
             st.session_state["ai_signal_history"] = new_history
-            st.success(f"Recorded {len(filtered)} displayed AI signals.")
+            try:
+                save_signal_snapshot(records, new_history)
+            except SignalHistoryStoreError as exc:
+                st.error(f"Signals were added to this session but could not be persisted: {exc}")
+            else:
+                st.success(f"Recorded and saved {len(filtered)} displayed AI signals.")
 
 st.divider()
 st.subheader("🧩 Unified AI Signal Explainability")
