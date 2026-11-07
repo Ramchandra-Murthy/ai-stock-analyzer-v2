@@ -36,7 +36,13 @@ class SignalRecord:
         entry_price = (
             self.adjusted_entry_price if self.adjusted_entry_price is not None else self.entry_price
         )
-        if self.outcome_price is None or entry_price <= 0:
+        if (
+            self.outcome_price is None
+            or not math.isfinite(float(self.outcome_price))
+            or self.outcome_price <= 0.0
+            or not math.isfinite(float(entry_price))
+            or entry_price <= 0.0
+        ):
             return None
         return (self.outcome_price / entry_price - 1.0) * 100.0
 
@@ -119,7 +125,13 @@ def attach_outcomes(
     rows = []
     for record in records:
         outcome = prices.get(record.symbol)
-        completed = outcome is not None
+        valid_outcome = (
+            outcome is not None
+            and math.isfinite(float(outcome))
+            and outcome > 0.0
+        )
+        outcome = float(outcome) if valid_outcome else None
+        completed = valid_outcome
         updated = SignalRecord(**{**record.__dict__, "outcome_price": outcome})
         rows.append(
             {
