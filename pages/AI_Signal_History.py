@@ -6,13 +6,13 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.signal_history import attach_horizon_outcomes, summarize_outcomes
-from ai_trading.signal_performance import summarize_signal_performance
 from ai_trading.signal_history_store import (
     SignalHistoryStoreError,
     load_signal_snapshot,
     save_signal_snapshot,
     signal_history_backend,
 )
+from ai_trading.signal_performance import summarize_signal_performance
 from components.disclaimer import show_disclaimer
 from services.resilient_market_data import download_symbol_frames
 
