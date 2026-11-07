@@ -269,3 +269,21 @@ def test_download_symbol_frames_forwards_retry_count_to_single_recovery(monkeypa
     assert frames == {}
     assert missing == ["AAA.NS"]
     assert _FakeTicker.requests == ["AAA.NS"]
+
+
+def test_download_batch_does_not_enable_hidden_yfinance_retries(monkeypatch) -> None:
+    """The wrapper retry budget must remain the only retry layer."""
+    network = market_data.yf.config.network
+    monkeypatch.setattr(network, "retries", 0)
+    monkeypatch.setattr(market_data.yf, "download", lambda **_kwargs: pd.DataFrame())
+
+    market_data._download_batch(
+        ["AAA.NS"],
+        period="1d",
+        interval="1m",
+        auto_adjust=False,
+        timeout=4,
+        retries=0,
+    )
+
+    assert network.retries == 0
