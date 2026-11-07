@@ -62,7 +62,6 @@ def test_scan_frames_without_history_preserves_raw_confidence() -> None:
     assert row["adaptive_samples"] == 0
 
 
-
 def test_scan_frames_refits_on_all_known_labels_for_live_prediction(monkeypatch) -> None:
     from ai_trading import ml_scanner
 
