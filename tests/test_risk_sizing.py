@@ -61,11 +61,14 @@ def test_risk_based_quantity_keeps_risk_and_notional_caps():
     assert result["risk_amount"] == 1_000.0
 
 
-@pytest.mark.parametrize("values", [
-    (float("nan"), 2.0, 2.0),
-    (100.0, float("inf"), 2.0),
-    (100.0, 2.0, float("-inf")),
-])
+@pytest.mark.parametrize(
+    "values",
+    [
+        (float("nan"), 2.0, 2.0),
+        (100.0, float("inf"), 2.0),
+        (100.0, 2.0, float("-inf")),
+    ],
+)
 def test_atr_stop_rejects_non_finite_inputs(values):
     with pytest.raises(ValueError, match="finite"):
         atr_stop(*values)
