@@ -111,9 +111,7 @@ def cached_download(
         lifetime = (
             EMPTY_TTL_SECONDS
             if stored.empty and cache_empty
-            else 0.0
-            if stored.empty
-            else max(0.0, ttl)
+            else 0.0 if stored.empty else max(0.0, ttl)
         )
         with _lock:
             completed_at = clock()
