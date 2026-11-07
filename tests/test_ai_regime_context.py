@@ -32,7 +32,6 @@ def test_build_regime_context_handles_close_only_data() -> None:
     assert isinstance(result["regime_score"], float)
 
 
-
 def test_regime_context_adjusts_ohlc_for_corporate_actions() -> None:
     raw_close = np.array([100.0] * 100 + [50.0] * 20)
     factor = np.array([0.5] * 100 + [1.0] * 20)
