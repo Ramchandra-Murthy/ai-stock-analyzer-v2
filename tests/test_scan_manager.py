@@ -35,8 +35,6 @@ def test_background_price_jump_scan_completes() -> None:
     ("second_lookback", "same_job"),
     [(5, True), (10, False)],
 )
-
-
 def test_active_price_jump_scan_parameter_handling(
     second_lookback: int,
     same_job: bool,
