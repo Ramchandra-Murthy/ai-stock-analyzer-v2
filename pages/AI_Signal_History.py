@@ -12,6 +12,7 @@ from ai_trading.signal_history_store import (
     save_signal_snapshot,
     signal_history_backend,
 )
+from ai_trading.signal_performance import summarize_signal_performance
 from components.disclaimer import show_disclaimer
 from services.resilient_market_data import download_symbol_frames
 
@@ -33,7 +34,25 @@ if not st.session_state.get("ai_signal_store_loaded", False):
 
 st.caption(f"Signal history storage: {signal_history_backend().upper()}")
 records = st.session_state.get("ai_signal_records", [])
-if isinstance(records, list) and records and st.button("Refresh completed signal outcomes"):
+if not isinstance(records, list):
+    records = []
+existing_history = st.session_state.get("ai_signal_history")
+has_pending_outcomes = (
+    not isinstance(existing_history, pd.DataFrame)
+    or len(existing_history) < len(records)
+    or "completed" not in existing_history.columns
+    or not bool(existing_history["completed"].fillna(False).all())
+)
+refresh_requested = False
+if records:
+    if has_pending_outcomes and not st.session_state.get("ai_signal_auto_refresh_attempted", False):
+        refresh_requested = True
+        st.session_state["ai_signal_auto_refresh_attempted"] = True
+        st.caption("Automatically checking pending signal outcomes on this visit.")
+    if st.button("Refresh completed signal outcomes"):
+        refresh_requested = True
+
+if refresh_requested:
     tickers_by_key = {}
     for record in records:
         suffix = ".NS" if record.exchange == "NSE" else ".BO"
@@ -71,12 +90,37 @@ if isinstance(records, list) and records and st.button("Refresh completed signal
 
 history = st.session_state.get("ai_signal_history")
 
-if not isinstance(history, pd.DataFrame):
+if not isinstance(history, pd.DataFrame) or history.empty:
     st.info(
         "No signal history has been recorded yet. Run the AI Trading Scanner "
         "and use its signal records to populate this research ledger."
     )
     st.stop()
+
+# Backfill market movement for legacy outcome rows that predate this field.
+if "market_return_pct" not in history.columns:
+    history["market_return_pct"] = pd.NA
+market_returns = pd.to_numeric(history["market_return_pct"], errors="coerce")
+missing_market_returns = market_returns.isna()
+if missing_market_returns.any() and {"entry_price", "outcome_price"}.issubset(history.columns):
+    if "adjusted_entry_price" in history:
+        entry = pd.to_numeric(history["adjusted_entry_price"], errors="coerce")
+    else:
+        entry = pd.Series(float("nan"), index=history.index)
+    entry = entry.fillna(pd.to_numeric(history["entry_price"], errors="coerce"))
+    outcome = pd.to_numeric(history["outcome_price"], errors="coerce")
+    valid_prices = (
+        missing_market_returns
+        & entry.map(lambda value: pd.notna(value) and value > 0.0)
+        & outcome.map(lambda value: pd.notna(value) and value > 0.0)
+    )
+    computed_market_returns = pd.Series(float("nan"), index=history.index)
+    computed_market_returns.loc[valid_prices] = (
+        outcome.loc[valid_prices] / entry.loc[valid_prices] - 1.0
+    ) * 100.0
+    history.loc[valid_prices, "market_return_pct"] = computed_market_returns.loc[valid_prices]
+neutral_mask = history["signal"].eq("NEUTRAL")
+history.loc[neutral_mask, "return_pct"] = float("nan")
 
 st.subheader("Signal History")
 st.dataframe(history, use_container_width=True, hide_index=True)
@@ -84,26 +128,54 @@ st.dataframe(history, use_container_width=True, hide_index=True)
 summary = summarize_outcomes(history)
 if summary.empty:
     st.info("No completed signal outcomes are available yet.")
-    st.stop()
+else:
+    st.subheader("Outcome Summary")
+    st.dataframe(summary, use_container_width=True, hide_index=True)
 
-st.subheader("Outcome Summary")
-st.dataframe(summary, use_container_width=True, hide_index=True)
+st.subheader("Signal Performance & Reliability")
+performance = summarize_signal_performance(history)
+if performance.empty:
+    st.info("Performance metrics require completed outcomes with valid returns.")
+else:
+    st.caption(
+        "Only completed outcomes are included. Break-even results count in the sample, "
+        "but are neither wins nor losses. Win-rate bounds are 95% Wilson intervals. "
+        "Drawdown is an equally weighted sequential signal-return proxy, not account-level "
+        "drawdown; overlapping positions, brokerage, taxes and slippage are not modeled."
+    )
+    st.dataframe(performance, use_container_width=True, hide_index=True)
+    st.download_button(
+        "Download Performance Report CSV",
+        data=performance.to_csv(index=False).encode("utf-8"),
+        file_name="signal_performance_report.csv",
+        mime="text/csv",
+    )
 
+completed = history.loc[history["completed"].fillna(False)].copy()
+directional = completed.loc[pd.to_numeric(completed["return_pct"], errors="coerce").notna()]
 metric1, metric2, metric3 = st.columns(3)
-completed = history[history["completed"]]
 metric1.metric("Signals", len(history))
-metric2.metric("Completed", len(completed))
+metric2.metric("Completed outcomes", len(completed))
 metric3.metric(
-    "Average completed return",
-    f"{completed['return_pct'].mean():.2f}%" if not completed.empty else "N/A",
+    "Average directional return",
+    f"{directional['return_pct'].mean():.2f}%" if not directional.empty else "N/A",
 )
 
-st.subheader("Completed Signal Returns")
-st.bar_chart(
-    completed.set_index("symbol")["return_pct"]
-    if not completed.empty
-    else history.set_index("symbol")["confidence_pct"]
-)
+neutral = completed.loc[completed["signal"].eq("NEUTRAL")]
+if not neutral.empty and "market_return_pct" in neutral.columns:
+    neutral_returns = pd.to_numeric(neutral["market_return_pct"], errors="coerce").dropna()
+    if not neutral_returns.empty:
+        st.info(
+            f"Neutral signals are not treated as trades. Their underlying stocks averaged "
+            f"{neutral_returns.mean():+.2f}% over the recorded horizon "
+            f"({len(neutral_returns)} completed observations)."
+        )
+
+st.subheader("Completed Directional Signal Returns")
+if directional.empty:
+    st.info("Directional return charts will appear when completed LONG or SHORT outcomes exist.")
+else:
+    st.bar_chart(directional.set_index("symbol")["return_pct"])
 
 csv = history.to_csv(index=False).encode("utf-8")
 st.download_button(
