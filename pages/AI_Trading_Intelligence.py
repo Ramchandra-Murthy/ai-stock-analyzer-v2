@@ -19,7 +19,7 @@ from ai_trading.signal_history_store import (
 from ai_trading.walk_forward import walk_forward_backtest
 from components.disclaimer import show_disclaimer
 from scanner.universe import BSE_CANDIDATES, NSE_CANDIDATES
-from services.resilient_market_data import download_symbol_frames
+from services.resilient_market_data import download_market_frames, download_symbol_frames
 
 st.set_page_config(page_title="AI Trading Intelligence", page_icon="🧠", layout="wide")
 
@@ -501,7 +501,7 @@ if st.button("Run Walk-Forward Backtest", type="primary"):
         else f"{str(ml_symbol).strip().upper()}.BO"
     )
     with st.spinner(f"Backtesting {ticker}..."):
-        history_frames, history_diagnostics = download_symbol_frames(
+        history_frames, history_diagnostics = download_market_frames(
             [ticker],
             period="5y",
             interval="1d",
