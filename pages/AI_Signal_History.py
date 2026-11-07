@@ -5,7 +5,8 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
-from ai_trading.signal_history import summarize_outcomes
+from ai_trading.signal_history import attach_horizon_outcomes, summarize_outcomes
+from services.resilient_market_data import download_symbol_frames
 from components.disclaimer import show_disclaimer
 
 st.set_page_config(page_title="AI Signal History", page_icon="🗂️", layout="wide")
@@ -13,6 +14,39 @@ st.set_page_config(page_title="AI Signal History", page_icon="🗂️", layout="
 st.title("🗂️ AI Signal History")
 show_disclaimer()
 st.caption("Historical AI signal outcome analytics. No broker orders are submitted.")
+
+records = st.session_state.get("ai_signal_records", [])
+if isinstance(records, list) and records and st.button("Refresh completed signal outcomes"):
+    tickers_by_key = {}
+    for record in records:
+        suffix = ".NS" if record.exchange == "NSE" else ".BO"
+        ticker = (
+            record.symbol
+            if record.symbol.endswith((".NS", ".BO"))
+            else f"{record.symbol}{suffix}"
+        )
+        tickers_by_key[f"{record.exchange}:{record.symbol}"] = ticker
+    tickers = sorted(set(tickers_by_key.values()))
+    with st.spinner(f"Checking {len(tickers)} symbols for completed outcomes..."):
+        frames_by_ticker, diagnostics = download_symbol_frames(
+            tickers,
+            period="5y",
+            interval="1d",
+            auto_adjust=False,
+            batch_size=10,
+            timeout=15,
+        )
+        frames_by_key = {
+            key: frames_by_ticker.get(ticker, pd.DataFrame())
+            for key, ticker in tickers_by_key.items()
+        }
+        history = attach_horizon_outcomes(records, frames_by_key)
+        st.session_state["ai_signal_history"] = history
+    completed_count = int(history["completed"].sum()) if not history.empty else 0
+    st.success(f"Updated signal outcomes: {completed_count}/{len(history)} horizons completed.")
+    missing = diagnostics.get("missing", [])
+    if missing:
+        st.warning(f"Market data was unavailable for {len(missing)} symbols; those outcomes remain pending.")
 
 history = st.session_state.get("ai_signal_history")
 
