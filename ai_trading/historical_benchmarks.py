@@ -3,6 +3,7 @@
 Returns use only benchmark closes observable at signal time and the exact
 outcome session. Missing sessions/prices stay explicitly unavailable.
 """
+
 from __future__ import annotations
 
 import math
@@ -32,9 +33,15 @@ def _session_closes(frame: pd.DataFrame | None) -> pd.Series:
     if not isinstance(frame.index, pd.DatetimeIndex):
         return pd.Series(dtype=float)
     values = pd.to_numeric(frame["Close"], errors="coerce")
-    values = values.where(values.map(
-        lambda value: pd.notna(value) and math.isfinite(float(value)) and float(value) > 0
-    )).dropna().sort_index()
+    values = (
+        values.where(
+            values.map(
+                lambda value: pd.notna(value) and math.isfinite(float(value)) and float(value) > 0
+            )
+        )
+        .dropna()
+        .sort_index()
+    )
     if values.empty:
         return values
     dates = pd.DatetimeIndex(values.index)
@@ -94,8 +101,12 @@ def attach_historical_benchmarks(
     """
     result = history.copy()
     columns = [
-        "benchmark_name", "benchmark_return_pct", "benchmark_status",
-        "sector", "sector_benchmark_name", "sector_benchmark_return_pct",
+        "benchmark_name",
+        "benchmark_return_pct",
+        "benchmark_status",
+        "sector",
+        "sector_benchmark_name",
+        "sector_benchmark_return_pct",
         "sector_benchmark_status",
     ]
     if result.empty:
@@ -104,17 +115,13 @@ def attach_historical_benchmarks(
                 result[column] = pd.Series(dtype="object")
         return result
     if not {"timestamp", "outcome_timestamp", "symbol"}.issubset(result.columns):
-        raise ValueError(
-            "Signal history requires timestamp, outcome_timestamp and symbol columns"
-        )
+        raise ValueError("Signal history requires timestamp, outcome_timestamp and symbol columns")
 
     close_cache = {ticker: _session_closes(frame) for ticker, frame in benchmark_frames.items()}
     nifty = close_cache.get(NIFTY_50_TICKER, pd.Series(dtype=float))
     values: list[dict[str, object]] = []
     for row in result.itertuples(index=False):
-        nifty_return, nifty_status = _benchmark_return(
-            nifty, row.timestamp, row.outcome_timestamp
-        )
+        nifty_return, nifty_status = _benchmark_return(nifty, row.timestamp, row.outcome_timestamp)
         sector = sector_for_ticker(str(row.symbol))
         sector_ticker = SECTOR_INDEX_TICKERS.get(sector)
         sector_return: float | None = None
@@ -128,19 +135,23 @@ def attach_historical_benchmarks(
                     row.timestamp,
                     row.outcome_timestamp,
                 )
-        values.append({
-            "benchmark_name": "NIFTY 50",
-            "benchmark_return_pct": nifty_return,
-            "benchmark_status": (
-                nifty_status if NIFTY_50_TICKER in close_cache else "benchmark_data_unavailable"
-            ),
-            "sector": sector,
-            "sector_benchmark_name": sector_ticker or pd.NA,
-            "sector_benchmark_return_pct": sector_return,
-            "sector_benchmark_status": sector_status if sector_ticker else (
-                "sector_unmapped" if sector == UNMAPPED else sector_status
-            ),
-        })
+        values.append(
+            {
+                "benchmark_name": "NIFTY 50",
+                "benchmark_return_pct": nifty_return,
+                "benchmark_status": (
+                    nifty_status if NIFTY_50_TICKER in close_cache else "benchmark_data_unavailable"
+                ),
+                "sector": sector,
+                "sector_benchmark_name": sector_ticker or pd.NA,
+                "sector_benchmark_return_pct": sector_return,
+                "sector_benchmark_status": (
+                    sector_status
+                    if sector_ticker
+                    else ("sector_unmapped" if sector == UNMAPPED else sector_status)
+                ),
+            }
+        )
     attached = pd.DataFrame(values, index=result.index)
     for column in columns:
         result[column] = attached[column]
