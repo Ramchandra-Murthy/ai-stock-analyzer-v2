@@ -51,6 +51,8 @@ from scanner.price_jump_confluence import match_price_jumps_to_confluence
 from scanner.price_jump_history import append_price_jump_snapshot
 from scanner.price_jump_history_analytics import summarize_price_jump_history
 from scanner.unusual_activity import scan_unusual_activity
+from services.cached_download import cached_download
+from services.intraday_auto_refresh import should_fetch_live_board
 from services.intraday_candle_quality import assess_intraday_candles
 from services.symbol_resolver import yahoo_ticker
 
@@ -252,6 +254,9 @@ def _fetch_live_board() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[
         (symbol, "BSE") for symbol in BSE_CANDIDATES
     ]
     rows: list[dict[str, object]] = []
+    market_session_active = _market_session_is_open(datetime.now(IST))
+    minute_cache_ttl = 60 if market_session_active else 1800
+    daily_cache_ttl = 900 if market_session_active else 3600
     scan_started = perf_counter()
     stats = {
         "candidates": len(candidates),
@@ -276,18 +281,24 @@ def _fetch_live_board() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[
             stats["chunks"] += 1
             download_started = perf_counter()
             try:
-                history = yf.download(
+                history = cached_download(
                     tickers=chunk,
                     period="5d",
+                    ttl=minute_cache_ttl,
+                    cache_empty=False,
+                    downloader=yf.download,
                     interval="1m",
                     progress=False,
                     auto_adjust=False,
                     group_by="ticker",
                     threads=False,
                 )
-                daily_history = yf.download(
+                daily_history = cached_download(
                     tickers=chunk,
                     period="5d",
+                    ttl=daily_cache_ttl,
+                    cache_empty=False,
+                    downloader=yf.download,
                     interval="1d",
                     progress=False,
                     auto_adjust=False,
@@ -399,9 +410,12 @@ def _fetch_live_board() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[
     nifty_1m = nifty_5m = nifty_today = None
     benchmark_started = perf_counter()
     try:
-        benchmark = yf.download(
+        benchmark = cached_download(
             "^NSEI",
             period="5d",
+            ttl=minute_cache_ttl,
+            cache_empty=False,
+            downloader=yf.download,
             interval="1m",
             progress=False,
             auto_adjust=False,
@@ -412,9 +426,12 @@ def _fetch_live_board() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[
             nifty_1m = (float(benchmark_close.iloc[-1]) / float(benchmark_close.iloc[-2]) - 1) * 100
         if len(benchmark_close) >= 6:
             nifty_5m = (float(benchmark_close.iloc[-1]) / float(benchmark_close.iloc[-6]) - 1) * 100
-        daily_benchmark = yf.download(
+        daily_benchmark = cached_download(
             "^NSEI",
             period="5d",
+            ttl=daily_cache_ttl,
+            cache_empty=False,
+            downloader=yf.download,
             interval="1d",
             progress=False,
             auto_adjust=False,
@@ -535,7 +552,30 @@ def _show_live_20_panel() -> None:
 
     @st.fragment(run_every=LIVE_BOARD_REFRESH_SECONDS)
     def _live_board_fragment() -> None:
-        board, signals, sector_summary, stats = _fetch_live_board()
+        now = datetime.now(IST)
+        market_open = _market_session_is_open(now)
+        has_snapshot = all(
+            key in st.session_state
+            for key in (
+                "live_board",
+                "live_signals",
+                "live_sector_summary",
+                "live_board_stats",
+            )
+        )
+        if should_fetch_live_board(market_open, has_snapshot):
+            board, signals, sector_summary, stats = _fetch_live_board()
+            if not board.empty:
+                st.session_state["live_board"] = board.copy()
+                st.session_state["live_signals"] = signals.copy()
+                st.session_state["live_sector_summary"] = sector_summary.copy()
+                st.session_state["live_board_stats"] = dict(stats)
+        else:
+            board = st.session_state["live_board"].copy()
+            signals = st.session_state["live_signals"].copy()
+            sector_summary = st.session_state["live_sector_summary"].copy()
+            stats = dict(st.session_state["live_board_stats"])
+
         if board.empty:
             st.warning(
                 "No live board data is currently available. Try again during market hours or check the data provider."
@@ -543,9 +583,9 @@ def _show_live_20_panel() -> None:
             return
 
         st.session_state["live_board"] = board.copy()
+        st.session_state["live_signals"] = signals.copy()
         st.session_state["live_sector_summary"] = sector_summary.copy()
-
-        now = datetime.now(IST)
+        st.session_state["live_board_stats"] = dict(stats)
         market_open = _market_session_is_open(now)
         latest_candle = pd.to_datetime(board["Last update"], errors="coerce").max()
         freshness_text = (
@@ -612,6 +652,10 @@ def _show_live_20_panel() -> None:
             f" · Data age: {latest_age_seconds:.0f}s" if latest_age_seconds is not None else ""
         )
         st.info(f"{market_text} {freshness_text}{freshness_detail}")
+        if not market_open:
+            st.caption(
+                "Market closed: reusing the last board snapshot; automatic Yahoo downloads are paused."
+            )
         confluence = compute_signal_confluence(board)
         if not confluence.empty and "Last update" in confluence.columns:
             signal_times = pd.to_datetime(confluence["Last update"], errors="coerce", utc=True)

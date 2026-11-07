@@ -39,3 +39,8 @@ def refresh_label(seconds: int) -> str:
         return "refresh due"
     minutes, remaining = divmod(seconds, 60)
     return f"{minutes}m {remaining:02d}s" if minutes else f"{remaining}s"
+
+
+def should_fetch_live_board(market_session_active: bool, has_snapshot: bool) -> bool:
+    """Fetch during the live session, or once when no snapshot exists."""
+    return bool(market_session_active or not has_snapshot)
