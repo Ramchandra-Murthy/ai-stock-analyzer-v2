@@ -57,7 +57,6 @@ def test_split_stale_with_no_usable_dates_returns_everything_stale() -> None:
     assert split_stale({"A.NS": None}) == (None, ["A.NS"])
 
 
-
 def test_filter_stale_frames_excludes_symbols_behind_batch_reference() -> None:
     from services.data_quality import filter_stale_frames
 
