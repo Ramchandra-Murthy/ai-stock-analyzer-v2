@@ -6,7 +6,6 @@ import pandas as pd
 import streamlit as st
 
 from ai_trading.benchmark_coverage import summarize_benchmark_coverage
-
 from ai_trading.historical_benchmarks import (
     NIFTY_50_TICKER,
     SECTOR_INDEX_TICKERS,
