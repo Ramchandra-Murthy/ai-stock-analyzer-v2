@@ -43,6 +43,36 @@ def test_invalid_position_limit_is_rejected() -> None:
         RiskLimits(max_exposure_pct=40.0, max_position_pct=50.0)
 
 
+@pytest.mark.parametrize(
+    "field",
+    ["max_exposure_pct", "max_position_pct", "cash_reserve_pct"],
+)
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_risk_limits_reject_non_finite_percentages(field, value) -> None:
+    with pytest.raises(ValueError, match=field):
+        RiskLimits(**{field: value})
+
+
+@pytest.mark.parametrize("field", ["equity", "cash", "market_value"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_allocation_rejects_non_finite_portfolio_values(field, value) -> None:
+    values = {"equity": 100_000.0, "cash": 50_000.0, "market_value": 25_000.0}
+    values[field] = value
+    with pytest.raises(ValueError, match=field):
+        RiskLimits().allocation(**values, candidate_count=2)
+
+
+@pytest.mark.parametrize("candidate_count", [1.5, True, -1])
+def test_allocation_rejects_invalid_candidate_count(candidate_count) -> None:
+    with pytest.raises(ValueError, match="candidate_count"):
+        RiskLimits().allocation(100_000.0, 50_000.0, 25_000.0, candidate_count)
+
+
+def test_risk_warnings_reject_non_finite_portfolio_values() -> None:
+    with pytest.raises(ValueError, match="cash"):
+        risk_warnings(100_000.0, float("nan"), 25_000.0, RiskLimits())
+
+
 def test_risk_warnings_report_excess_exposure_and_low_reserve() -> None:
     limits = RiskLimits(max_exposure_pct=80.0, cash_reserve_pct=20.0)
 
