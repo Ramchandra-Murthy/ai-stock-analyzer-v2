@@ -1,5 +1,7 @@
 """Tests for intraday position sizing."""
 
+import pytest
+
 from services.intraday_position_sizing import calculate_position_size
 
 
@@ -52,8 +54,6 @@ def test_rejects_non_finite_inputs(values):
     ],
 )
 def test_rejects_invalid_levels_and_controls(values):
-    import pytest
-
     with pytest.raises(ValueError):
         calculate_position_size(*values)
 
