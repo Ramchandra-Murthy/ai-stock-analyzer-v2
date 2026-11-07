@@ -3,6 +3,7 @@
 Missing minute bars are reported rather than filled because no-trade intervals and
 provider omissions cannot be distinguished from OHLCV data alone.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
