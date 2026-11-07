@@ -34,7 +34,16 @@ if not st.session_state.get("ai_signal_store_loaded", False):
 
 st.caption(f"Signal history storage: {signal_history_backend().upper()}")
 records = st.session_state.get("ai_signal_records", [])
-if isinstance(records, list) and records and st.button("Refresh completed signal outcomes"):
+refresh_requested = False
+if isinstance(records, list) and records:
+    if not st.session_state.get("ai_signal_auto_refresh_attempted", False):
+        refresh_requested = True
+        st.session_state["ai_signal_auto_refresh_attempted"] = True
+        st.caption("Automatically checking pending signal outcomes on this visit.")
+    if st.button("Refresh completed signal outcomes"):
+        refresh_requested = True
+
+if refresh_requested:
     tickers_by_key = {}
     for record in records:
         suffix = ".NS" if record.exchange == "NSE" else ".BO"
