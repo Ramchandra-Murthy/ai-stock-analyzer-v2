@@ -296,6 +296,7 @@ if st.button("Generate AI Signal Explanation", type="secondary"):
             explain_history,
             horizon=explain_horizon,
             threshold=0.01,
+            refit_full=True,
         )
         explain_prediction = predict_latest(explain_model, explain_history)
     except (TypeError, ValueError, KeyError) as exc:
@@ -379,6 +380,7 @@ if st.button("Train & Validate ML Model", type="secondary"):
             history,
             horizon=horizon,
             threshold=threshold_pct / 100.0,
+            refit_full=True,
         )
         prediction = predict_latest(model, history)
     except (TypeError, ValueError, KeyError) as exc:
