@@ -62,9 +62,13 @@ class RiskLimits:
         if candidate_count == 0:
             per_candidate = 0.0
         else:
+            # Divide the portfolio budget across all candidates before applying
+            # the single-position cap; otherwise aggregate allocations can exceed
+            # the available capital when several candidates are selected.
+            candidate_budget = total_available / candidate_count
             per_candidate = min(
                 equity * self.max_position_pct / 100.0,
-                total_available,
+                candidate_budget,
             )
 
         return {
