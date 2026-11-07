@@ -238,6 +238,9 @@ if isinstance(ml_result, pd.DataFrame):
                     validation_pct=float(row["validation_pct"]),
                     trend_pct=float(row["trend_pct"]),
                     entry_price=float(row["latest_price"]),
+                    adjusted_entry_price=float(
+                        row.get("latest_adjusted_price", row["latest_price"])
+                    ),
                     horizon_days=int(st.session_state.get("ai_ml_horizon", scan_horizon)),
                 )
                 records.append(record)
@@ -301,6 +304,7 @@ if st.button("Generate AI Signal Explanation", type="secondary"):
             explain_history,
             horizon=explain_horizon,
             threshold=0.01,
+            refit_full=True,
         )
         explain_prediction = predict_latest(explain_model, explain_history)
     except (TypeError, ValueError, KeyError) as exc:
@@ -384,6 +388,7 @@ if st.button("Train & Validate ML Model", type="secondary"):
             history,
             horizon=horizon,
             threshold=threshold_pct / 100.0,
+            refit_full=True,
         )
         prediction = predict_latest(model, history)
     except (TypeError, ValueError, KeyError) as exc:
