@@ -97,7 +97,6 @@ def test_missing_required_columns_are_reported():
         evaluate_signal_trades(pd.DataFrame({"symbol": ["AAA"]}), _cost_model())
 
 
-
 def test_sector_benchmark_is_direction_adjusted_for_long_and_short():
     result = evaluate_signal_trades(_history(), _cost_model())
     long_row = result.loc[result["signal"] == "LONG"].iloc[0]
