@@ -23,18 +23,6 @@ DEFAULT_TIMEOUT = 12.0
 RETRY_BACKOFF_SECONDS = 1.0
 
 
-def _configure_yfinance() -> None:
-    """Enable yfinance's built-in transient-network retry support when available."""
-    try:
-        yf.config.network.retries = max(
-            int(getattr(yf.config.network, "retries", 0)),
-            DEFAULT_RETRIES,
-        )
-    except (AttributeError, TypeError, ValueError):
-        # Older yfinance versions may not expose the global config object.
-        return
-
-
 def _ticker_frame(history: pd.DataFrame | None, ticker: str) -> pd.DataFrame:
     """Extract one ticker from either supported yfinance column layout."""
     if history is None or history.empty:
@@ -69,7 +57,6 @@ def _download_batch(
     diagnostics: list[str] | None = None,
 ) -> pd.DataFrame:
     """Download one batch with bounded retries and no hidden synthetic data."""
-    _configure_yfinance()
     last_error: Exception | None = None
 
     retry_count = max(0, int(retries))
