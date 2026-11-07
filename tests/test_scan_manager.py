@@ -9,6 +9,7 @@ import pytest
 
 from api.scan_manager import ErosScanManager
 
+
 def test_background_price_jump_scan_completes() -> None:
     frame = pd.DataFrame({"Symbol": ["TEST"], "Change over 5m": [1.5]})
     frame.attrs["scan_stats"] = {"candidate_count": 1}
