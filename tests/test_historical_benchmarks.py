@@ -3,8 +3,8 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pytest
-from ai_trading.historical_benchmarks import attach_historical_benchmarks
 
+from ai_trading.historical_benchmarks import attach_historical_benchmarks
 
 IST = ZoneInfo("Asia/Kolkata")
 
