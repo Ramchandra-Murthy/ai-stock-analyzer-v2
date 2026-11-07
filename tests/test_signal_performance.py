@@ -60,7 +60,6 @@ def test_performance_groups_by_signal_horizon_and_exchange():
     assert set(result["exchange"]) == {"NSE", "BSE"}
 
 
-
 def test_neutral_market_movement_is_not_counted_as_strategy_performance():
     history = _history([float("nan")])
     history["signal"] = "NEUTRAL"
