@@ -34,9 +34,7 @@ class SignalRecord:
     def return_pct(self) -> float | None:
         """Return price change, signed by the recorded signal direction."""
         entry_price = (
-            self.adjusted_entry_price
-            if self.adjusted_entry_price is not None
-            else self.entry_price
+            self.adjusted_entry_price if self.adjusted_entry_price is not None else self.entry_price
         )
         if self.outcome_price is None or entry_price <= 0:
             return None
