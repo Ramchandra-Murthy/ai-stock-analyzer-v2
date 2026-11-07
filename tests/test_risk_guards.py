@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -95,3 +96,17 @@ def test_close_derived_signal_enters_on_the_following_bar():
     assert result.equity.iloc[0] == pytest.approx(1.0)
     assert result.equity.iloc[1] == pytest.approx(1.0)
     assert result.equity.iloc[2] == pytest.approx(1.1)
+
+
+
+@pytest.mark.parametrize("bad_cost", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_costs_are_rejected(bad_cost):
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        simulate_with_guards(_px([100] * 40), _always_on(), GuardConfig(cost_bps=bad_cost))
+
+
+def test_infinite_close_prices_are_rejected():
+    close = _px([100] * 40)
+    close.iloc[10] = np.inf
+    with pytest.raises(ValueError, match="finite positive prices"):
+        simulate_with_guards(close, _always_on(), GuardConfig(cost_bps=0))
