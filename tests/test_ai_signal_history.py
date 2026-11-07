@@ -163,3 +163,28 @@ def test_horizon_outcome_stays_pending_until_enough_future_bars_exist() -> None:
     assert bool(history.loc[0, "completed"]) is False
     assert pd.isna(history.loc[0, "outcome_price"])
     assert pd.isna(history.loc[0, "return_pct"])
+
+
+
+def test_horizon_outcome_ignores_non_finite_prices() -> None:
+    from ai_trading.signal_history import attach_horizon_outcomes
+
+    record = record_signal(
+        symbol="INFY",
+        exchange="NSE",
+        signal="LONG",
+        probability_up=0.6,
+        confidence_pct=60.0,
+        validation_pct=65.0,
+        trend_pct=55.0,
+        entry_price=100.0,
+        horizon_days=1,
+        timestamp=datetime(2026, 10, 1, tzinfo=UTC),
+    )
+    index = pd.date_range("2026-10-02", periods=2, freq="B", tz="Asia/Kolkata")
+    frame = pd.DataFrame({"Close": [float("inf"), 105.0]}, index=index)
+
+    history = attach_horizon_outcomes([record], {"NSE:INFY": frame})
+
+    assert bool(history.loc[0, "completed"]) is True
+    assert history.loc[0, "outcome_price"] == pytest.approx(105.0)
