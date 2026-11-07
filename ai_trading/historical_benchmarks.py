@@ -120,11 +120,14 @@ def attach_historical_benchmarks(
         sector_return: float | None = None
         sector_status = "sector_index_not_mapped"
         if sector_ticker:
-            sector_return, sector_status = _benchmark_return(
-                close_cache.get(sector_ticker, pd.Series(dtype=float)),
-                row.timestamp,
-                row.outcome_timestamp,
-            )
+            if sector_ticker not in close_cache:
+                sector_status = "benchmark_data_unavailable"
+            else:
+                sector_return, sector_status = _benchmark_return(
+                    close_cache[sector_ticker],
+                    row.timestamp,
+                    row.outcome_timestamp,
+                )
         values.append({
             "benchmark_name": "NIFTY 50",
             "benchmark_return_pct": nifty_return,
