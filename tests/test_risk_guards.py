@@ -21,12 +21,14 @@ def _px(values):
 def _always_on():
     return pd.Series(True, index=IDX)
 
+
 def test_no_guards_holds_through_a_crash():
     path = [100] * 10 + [100 - i * 2 for i in range(1, 16)]  # falls to 70
     close = _px(path)
     res = simulate_with_guards(close, _always_on(), GuardConfig(cost_bps=0))
     assert res.exits_by_reason == {"still open": 1}
     assert res.max_drawdown == pytest.approx(-0.30, abs=0.01)
+
 
 def test_stop_loss_exits_at_the_breach_and_does_not_reenter_while_signal_stays_on():
     close = _px([100] * 10 + [100 - i * 2 for i in range(1, 16)])
@@ -35,6 +37,7 @@ def test_stop_loss_exits_at_the_breach_and_does_not_reenter_while_signal_stays_o
     assert len(res.trades) == 1  # blocked from re-entry
     # a stop fills at the next close, so it can overshoot by one step but not run to -30%
     assert -0.13 < res.max_drawdown <= -0.10
+
 
 def test_take_profit_and_trailing_stop_fire():
     up_then_down = [100, 100, 110, 120, 130, 120, 110, 100] + [100] * 52
@@ -48,6 +51,7 @@ def test_take_profit_and_trailing_stop_fire():
     assert trail.exits_by_reason.get("trailing stop") == 1
     assert trail.trades["return"].iloc[0] == pytest.approx(0.10)  # exits at 110, not back at 100
 
+
 def test_kill_switch_halts_everything_after_the_limit():
     zigzag = [100, 90, 100, 90, 100, 90, 100, 90] * 7
     signal = _always_on()
@@ -58,11 +62,13 @@ def test_kill_switch_halts_everything_after_the_limit():
     after = killed.equity.loc[killed.killed_on :]
     assert after.nunique() == 1  # flat once halted
 
+
 def test_costs_reduce_equity():
     close = _px(list(range(100, 130)))
     free = simulate_with_guards(close, _always_on(), GuardConfig(cost_bps=0))
     paid = simulate_with_guards(close, _always_on(), GuardConfig(cost_bps=50))
     assert paid.total_return < free.total_return
+
 
 def test_compare_and_signal_helpers():
     close = pd.Series(range(100, 200), index=pd.bdate_range("2024-01-01", periods=100), dtype=float)
@@ -73,10 +79,12 @@ def test_compare_and_signal_helpers():
     with pytest.raises(ValueError):
         sma_crossover_signal(close, 20, 5)
 
+
 @pytest.mark.parametrize("bad", [{"stop_loss": 0}, {"take_profit": 1.5}, {"cost_bps": -1}])
 def test_invalid_config_rejected(bad):
     with pytest.raises(ValueError):
         simulate_with_guards(_px([100] * 40), _always_on(), GuardConfig(**bad))
+
 
 def test_close_derived_signal_enters_on_the_following_bar():
     close = _px([100, 110, 121, 133.1])
@@ -94,6 +102,7 @@ def test_close_derived_signal_enters_on_the_following_bar():
 def test_non_finite_costs_are_rejected(bad_cost):
     with pytest.raises(ValueError, match="finite and non-negative"):
         simulate_with_guards(_px([100] * 40), _always_on(), GuardConfig(cost_bps=bad_cost))
+
 
 def test_infinite_close_prices_are_rejected():
     close = _px([100] * 40)
