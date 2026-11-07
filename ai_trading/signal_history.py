@@ -124,13 +124,13 @@ def attach_outcomes(
     """Attach supplied outcome prices and calculate signed returns."""
     rows = []
     for record in records:
-        outcome = prices.get(record.symbol)
-        valid_outcome = (
-            outcome is not None
-            and math.isfinite(float(outcome))
-            and outcome > 0.0
-        )
-        outcome = float(outcome) if valid_outcome else None
+        raw_outcome = prices.get(record.symbol)
+        try:
+            outcome = float(raw_outcome) if raw_outcome is not None else None
+        except (TypeError, ValueError, OverflowError):
+            outcome = None
+        valid_outcome = outcome is not None and math.isfinite(outcome) and outcome > 0.0
+        outcome = outcome if valid_outcome else None
         completed = valid_outcome
         updated = SignalRecord(**{**record.__dict__, "outcome_price": outcome})
         rows.append(
