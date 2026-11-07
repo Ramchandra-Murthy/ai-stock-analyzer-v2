@@ -64,6 +64,31 @@ def test_neutral_records_market_movement_without_fabricating_strategy_return():
     assert history.loc[0, "market_return_pct"] == pytest.approx(10.0)
 
 
+def test_neutral_horizon_outcome_keeps_actual_market_return():
+    from ai_trading.signal_history import attach_horizon_outcomes
+
+    record = record_signal(
+        symbol="INFY",
+        exchange="NSE",
+        signal="NEUTRAL",
+        probability_up=0.5,
+        confidence_pct=50.0,
+        validation_pct=60.0,
+        trend_pct=50.0,
+        entry_price=100.0,
+        horizon_days=1,
+        timestamp=datetime(2026, 10, 1, 9, 0, tzinfo=UTC),
+    )
+    index = pd.date_range("2026-10-01", periods=2, freq="B", tz="Asia/Kolkata")
+    frame = pd.DataFrame({"Close": [100.0, 108.0]}, index=index)
+
+    history = attach_horizon_outcomes([record], {"NSE:INFY": frame})
+
+    assert bool(history.loc[0, "completed"]) is True
+    assert pd.isna(history.loc[0, "return_pct"])
+    assert history.loc[0, "market_return_pct"] == pytest.approx(8.0)
+
+
 def test_summary_by_signal():
     records = [
         record_signal(
