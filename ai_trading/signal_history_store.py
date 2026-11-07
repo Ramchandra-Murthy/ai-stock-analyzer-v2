@@ -104,13 +104,13 @@ def _supabase_request(
             "Could not reach Supabase while accessing AI signal history."
         ) from exc
     except (ValueError, UnicodeDecodeError) as exc:
-        raise SignalHistoryStoreError("Supabase returned an unreadable signal-history response.") from exc
+        raise SignalHistoryStoreError(
+            "Supabase returned an unreadable signal-history response."
+        ) from exc
 
 
 def _database_path() -> Path:
-    return Path(
-        os.environ.get("AI_SIGNAL_HISTORY_DATABASE_PATH", str(DEFAULT_DATABASE_PATH))
-    )
+    return Path(os.environ.get("AI_SIGNAL_HISTORY_DATABASE_PATH", str(DEFAULT_DATABASE_PATH)))
 
 
 def _connect() -> sqlite3.Connection:
@@ -119,8 +119,7 @@ def _connect() -> sqlite3.Connection:
     connection = sqlite3.connect(path, timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA busy_timeout = 10000")
-    connection.execute(
-        """
+    connection.execute("""
         CREATE TABLE IF NOT EXISTS ai_signal_history (
             signal_timestamp TEXT NOT NULL,
             symbol TEXT NOT NULL,
@@ -130,8 +129,7 @@ def _connect() -> sqlite3.Connection:
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (signal_timestamp, symbol, exchange)
         )
-        """
-    )
+        """)
     return connection
 
 
@@ -263,13 +261,11 @@ def load_signal_snapshot() -> tuple[list[SignalRecord], pd.DataFrame]:
                             json.loads(row["outcome_json"]) if row["outcome_json"] else None
                         ),
                     }
-                    for row in connection.execute(
-                        """
+                    for row in connection.execute("""
                         SELECT record_json, outcome_json
                         FROM ai_signal_history
                         ORDER BY signal_timestamp ASC
-                        """
-                    ).fetchall()
+                        """).fetchall()
                 ]
         except (sqlite3.Error, ValueError, TypeError) as exc:
             raise SignalHistoryStoreError("Could not load AI signal history from SQLite.") from exc
