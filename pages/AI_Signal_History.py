@@ -85,10 +85,9 @@ st.dataframe(history, use_container_width=True, hide_index=True)
 summary = summarize_outcomes(history)
 if summary.empty:
     st.info("No completed signal outcomes are available yet.")
-    st.stop()
-
-st.subheader("Outcome Summary")
-st.dataframe(summary, use_container_width=True, hide_index=True)
+else:
+    st.subheader("Outcome Summary")
+    st.dataframe(summary, use_container_width=True, hide_index=True)
 
 st.subheader("Signal Performance & Reliability")
 performance = summarize_signal_performance(history)
@@ -109,21 +108,31 @@ else:
         mime="text/csv",
     )
 
+completed = history.loc[history["completed"].fillna(False)].copy()
+directional = completed.loc[pd.to_numeric(completed["return_pct"], errors="coerce").notna()]
 metric1, metric2, metric3 = st.columns(3)
-completed = history[history["completed"]]
 metric1.metric("Signals", len(history))
-metric2.metric("Completed", len(completed))
+metric2.metric("Completed outcomes", len(completed))
 metric3.metric(
-    "Average completed return",
-    f"{completed['return_pct'].mean():.2f}%" if not completed.empty else "N/A",
+    "Average directional return",
+    f"{directional['return_pct'].mean():.2f}%" if not directional.empty else "N/A",
 )
 
-st.subheader("Completed Signal Returns")
-st.bar_chart(
-    completed.set_index("symbol")["return_pct"]
-    if not completed.empty
-    else history.set_index("symbol")["confidence_pct"]
-)
+neutral = completed.loc[completed["signal"].eq("NEUTRAL")]
+if not neutral.empty and "market_return_pct" in neutral.columns:
+    neutral_returns = pd.to_numeric(neutral["market_return_pct"], errors="coerce").dropna()
+    if not neutral_returns.empty:
+        st.info(
+            f"Neutral signals are not treated as trades. Their underlying stocks averaged "
+            f"{neutral_returns.mean():+.2f}% over the recorded horizon "
+            f"({len(neutral_returns)} completed observations)."
+        )
+
+st.subheader("Completed Directional Signal Returns")
+if directional.empty:
+    st.info("Directional return charts will appear when completed LONG or SHORT outcomes exist.")
+else:
+    st.bar_chart(directional.set_index("symbol")["return_pct"])
 
 csv = history.to_csv(index=False).encode("utf-8")
 st.download_button(
