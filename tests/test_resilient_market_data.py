@@ -353,7 +353,6 @@ def test_download_batch_does_not_cache_empty_results_and_retries(monkeypatch) ->
     assert calls == 3
 
 
-
 def test_download_single_caches_successful_identical_requests(monkeypatch) -> None:
     _install_fake_ticker(monkeypatch, {"CACHE_SINGLE.NS": _frame()})
 
