@@ -256,7 +256,6 @@ def test_training_dataset_excludes_non_finite_future_returns() -> None:
     assert labels.index.tolist() == [1, 2, 3, 4, 5]
 
 
-
 def test_features_and_labels_use_adjusted_close_across_a_split() -> None:
     from ai_trading.features import build_features
 
