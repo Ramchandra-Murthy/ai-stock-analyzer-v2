@@ -167,9 +167,7 @@ def run_backtest(
     daily_returns = data["strategy_return"].astype(float)
     annualization_factor = float(periods_per_year**0.5)
     volatility = (
-        float(daily_returns.std(ddof=1) * annualization_factor)
-        if len(daily_returns) > 1
-        else 0.0
+        float(daily_returns.std(ddof=1) * annualization_factor) if len(daily_returns) > 1 else 0.0
     )
     daily_std = float(daily_returns.std(ddof=1)) if len(daily_returns) > 1 else 0.0
     mean_daily = float(daily_returns.mean()) if len(daily_returns) else 0.0
