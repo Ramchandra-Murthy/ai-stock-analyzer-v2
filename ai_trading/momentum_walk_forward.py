@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
+from datetime import date
 from typing import Any
 
 from ai_trading.momentum_validation import evaluate_momentum_scores
@@ -42,10 +43,24 @@ class MomentumWalkForwardReport:
     low_sample_fold_count: int
     insufficient_evidence: bool
     folds: tuple[MomentumWalkForwardFold, ...]
+    purged_observation_count: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly representation."""
         return asdict(self)
+
+
+def _validate_iso_date(value: Any, *, key: str) -> str:
+    """Require the canonical YYYY-MM-DD representation used for sorting."""
+    if not isinstance(value, str):
+        raise ValueError(f"{key} must be an ISO-8601 date string (YYYY-MM-DD)")
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{key} must be a valid ISO-8601 date") from exc
+    if parsed.isoformat() != value:
+        raise ValueError(f"{key} must use the canonical YYYY-MM-DD format")
+    return value
 
 
 def evaluate_momentum_walk_forward(
@@ -54,14 +69,18 @@ def evaluate_momentum_walk_forward(
     date_key: str = "date",
     score_key: str = "momentum_score",
     return_key: str = "forward_return_pct",
+    label_end_key: str | None = None,
     n_splits: int = 5,
     min_observations_per_fold: int = 20,
 ) -> MomentumWalkForwardReport:
     """Evaluate score/return relationships across chronological equal-sized folds.
 
-    Dates must be sortable ISO-8601 date strings (YYYY-MM-DD). Observations are
-    sorted chronologically before splitting; each fold is evaluated independently.
-    The caller is responsible for point-in-time-safe scores and non-overlapping
+    Dates must use canonical YYYY-MM-DD strings. Observations are sorted
+    chronologically before splitting; each fold is evaluated independently.
+    When label_end_key is supplied, observations whose forward-return label
+    reaches the next fold's start date are purged from the earlier fold. The
+    caller remains responsible for point-in-time-safe scores and complete labels.
+    Without label_end_key, the caller is also responsible for non-overlapping
     forward-return labels.
     """
     if (
@@ -75,35 +94,53 @@ def evaluate_momentum_walk_forward(
         raise ValueError("n_splits must be an integer of at least 2")
 
     rows = list(observations)
-    normalized: list[tuple[str, Mapping[str, Any]]] = []
+    normalized: list[tuple[str, str | None, Mapping[str, Any]]] = []
     for row in rows:
         try:
             date_value = row[date_key]
         except (KeyError, TypeError) as exc:
             raise ValueError(f"each observation must contain {date_key}") from exc
-        if not isinstance(date_value, str) or len(date_value) != 10:
-            raise ValueError(f"{date_key} must be an ISO-8601 date string (YYYY-MM-DD)")
-        try:
-            from datetime import date
-
-            date.fromisoformat(date_value)
-        except ValueError as exc:
-            raise ValueError(f"{date_key} must be a valid ISO-8601 date") from exc
-        normalized.append((date_value, row))
+        observation_date = _validate_iso_date(date_value, key=date_key)
+        label_end = None
+        if label_end_key is not None:
+            try:
+                label_end = _validate_iso_date(row[label_end_key], key=label_end_key)
+            except (KeyError, TypeError) as exc:
+                raise ValueError(f"each observation must contain {label_end_key}") from exc
+            if label_end < observation_date:
+                raise ValueError(f"{label_end_key} must not precede {date_key}")
+        normalized.append((observation_date, label_end, row))
 
     normalized.sort(key=lambda item: item[0])
     if len(normalized) < n_splits:
         raise ValueError("observations must be at least n_splits")
 
     quotient, remainder = divmod(len(normalized), n_splits)
-    folds: list[MomentumWalkForwardFold] = []
+    raw_folds: list[list[tuple[str, str | None, Mapping[str, Any]]]] = []
     offset = 0
     for index in range(n_splits):
         fold_size = quotient + (1 if index < remainder else 0)
-        fold_rows = normalized[offset : offset + fold_size]
+        raw_folds.append(normalized[offset : offset + fold_size])
         offset += fold_size
+
+    folds: list[MomentumWalkForwardFold] = []
+    purged_observation_count = 0
+    for index, raw_fold in enumerate(raw_folds):
+        fold_rows = raw_fold
+        if label_end_key is not None and index < len(raw_folds) - 1:
+            next_fold_start = raw_folds[index + 1][0][0]
+            retained_rows = [
+                item for item in raw_fold if item[1] is not None and item[1] < next_fold_start
+            ]
+            purged_observation_count += len(raw_fold) - len(retained_rows)
+            fold_rows = retained_rows
+        if not fold_rows:
+            raise ValueError(
+                f"label purging left fold {index + 1} empty; use fewer splits or more history"
+            )
+
         metrics = evaluate_momentum_scores(
-            [row for _, row in fold_rows],
+            [row for _, _, row in fold_rows],
             score_key=score_key,
             return_key=return_key,
         )
@@ -152,4 +189,5 @@ def evaluate_momentum_walk_forward(
         low_sample_fold_count=low_sample_fold_count,
         insufficient_evidence=low_sample_fold_count > 0 or eligible_spread_count < 2,
         folds=tuple(folds),
+        purged_observation_count=purged_observation_count,
     )
