@@ -64,14 +64,11 @@ def calculate_position_size(
         raise ValueError("entry, stop_loss and target must be greater than zero")
 
     valid_levels = (
-        stop_loss < entry < target
-        if normalized_side == "LONG"
-        else target < entry < stop_loss
+        stop_loss < entry < target if normalized_side == "LONG" else target < entry < stop_loss
     )
     if not valid_levels:
         raise ValueError(
-            "LONG requires stop_loss < entry < target; "
-            "SHORT requires target < entry < stop_loss"
+            "LONG requires stop_loss < entry < target; " "SHORT requires target < entry < stop_loss"
         )
 
     risk_amount = capital * risk_percent / 100.0
