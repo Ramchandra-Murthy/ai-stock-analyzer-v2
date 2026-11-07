@@ -254,3 +254,23 @@ def test_training_dataset_excludes_non_finite_future_returns() -> None:
 
     assert features.index.tolist() == [1, 2, 3, 4, 5]
     assert labels.index.tolist() == [1, 2, 3, 4, 5]
+
+
+def test_features_and_labels_use_adjusted_close_across_a_split() -> None:
+    from ai_trading.features import build_features
+
+    raw_close = [100.0] * 60 + [50.0] * 10
+    adjusted_close = [50.0] * 70
+    frame = pd.DataFrame(
+        {
+            "Close": raw_close,
+            "Adj Close": adjusted_close,
+            "Volume": [1_000_000] * 70,
+        }
+    )
+
+    features = build_features(frame)
+    assert features.loc[60, "return_1"] == pytest.approx(0.0)
+
+    _, labels = make_training_dataset(frame, horizon=1, threshold=0.01)
+    assert labels.empty

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from ai_trading.features import adjusted_close_series, adjusted_ohlc_frame
 from engine.regime_engine import chapter4_regime
 
 
@@ -22,11 +23,13 @@ def build_regime_context(
 
     required = {"High", "Low", "Close"}
     if not required.issubset(frame.columns):
-        close = pd.to_numeric(frame["Close"], errors="coerce")
+        close = adjusted_close_series(frame)
         frame = pd.DataFrame(
             {"High": close, "Low": close, "Close": close},
             index=frame.index,
         )
+    else:
+        frame = adjusted_ohlc_frame(frame)
 
     result = chapter4_regime(frame, regime_threshold=threshold)
     if result.empty:
