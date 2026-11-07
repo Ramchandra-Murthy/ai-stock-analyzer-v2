@@ -54,6 +54,7 @@ def scan_frames(
                 accuracy=validation.accuracy,
                 roc_auc=validation.roc_auc,
                 trend_score=trend_score,
+                calibration_gap=validation.calibration_gap,
                 regime=str(regime["regime"]),
                 regime_strength=float(regime["regime_strength_pct"]) / 100.0,
             )
@@ -85,6 +86,12 @@ def scan_frames(
                 ),
                 "model_confidence_pct": decision.model_confidence_pct,
                 "validation_pct": decision.validation_pct,
+                "calibration_gap_pct": (
+                    round(validation.calibration_gap * 100, 2)
+                    if validation.calibration_gap is not None
+                    else None
+                ),
+                "brier_score": validation.brier_score,
                 "trend_pct": decision.trend_pct,
                 "regime": regime["regime"],
                 "regime_score": regime["regime_score"],
@@ -109,6 +116,8 @@ def scan_frames(
         "signal",
         "model_confidence_pct",
         "validation_pct",
+        "calibration_gap_pct",
+        "brier_score",
         "trend_pct",
         "regime",
         "regime_score",

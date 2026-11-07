@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from ai_trading.calibration import evaluate_calibration, monitor_calibration_frames
+from ai_trading.ml_model import expected_calibration_error
 
 
 def _market_frame(rows: int = 180) -> pd.DataFrame:
@@ -30,6 +31,7 @@ def test_calibration_returns_holdout_metrics_and_bins() -> None:
     assert 0.0 <= metrics.accuracy <= 1.0
     assert 0.0 <= metrics.brier_score <= 1.0
     assert 0.0 <= metrics.calibration_gap <= 1.0
+    assert 0.0 <= metrics.calibration_in_the_large <= 1.0
     assert metrics.test_samples == int(summary["samples"].sum())
 
 
@@ -51,3 +53,25 @@ def test_multi_stock_calibration_monitor_returns_ranked_rows() -> None:
 def test_multi_stock_calibration_rejects_invalid_exchange() -> None:
     with pytest.raises(ValueError, match="exchange"):
         monitor_calibration_frames({"AAA": _market_frame()}, exchange="NYSE")
+
+
+def test_expected_calibration_error_is_sample_weighted():
+    error = expected_calibration_error(
+        np.array([0, 1, 0, 1]),
+        np.array([0.1, 0.9, 0.2, 0.8]),
+        bins=2,
+    )
+    assert error == pytest.approx(0.15)
+
+
+@pytest.mark.parametrize(
+    "probabilities",
+    [
+        np.array([float("nan"), 0.5]),
+        np.array([-0.1, 0.5]),
+        np.array([0.5, 1.1]),
+    ],
+)
+def test_expected_calibration_error_rejects_invalid_probabilities(probabilities):
+    with pytest.raises(ValueError, match="probabilities"):
+        expected_calibration_error(np.array([0, 1]), probabilities)

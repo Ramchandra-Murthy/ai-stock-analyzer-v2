@@ -39,11 +39,16 @@ def test_scan_frames_returns_ranked_ml_results() -> None:
         "regime",
         "regime_score",
         "regime_strength_pct",
+        "calibration_gap_pct",
+        "brier_score",
         "decision_reason",
     }.issubset(result.columns)
     assert result["confidence_pct"].between(0, 100).all()
     assert result["probability_up_pct"].between(0, 100).all()
     assert result["regime_strength_pct"].between(0, 100).all()
+    assert result["calibration_gap_pct"].between(0, 100).all()
+    assert result["brier_score"].between(0, 1).all()
+    assert result["decision_reason"].str.contains("calibration gap ").all()
     assert result["decision_reason"].str.contains("regime ").all()
 
 

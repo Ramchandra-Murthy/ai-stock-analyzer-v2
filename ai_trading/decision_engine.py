@@ -58,9 +58,12 @@ def build_signal_decision(
     else:
         signal = "NEUTRAL"
 
+    calibration_detail = (
+        f"; calibration gap {calibration_gap:.1%}" if calibration_gap is not None else ""
+    )
     reason = (
-        f"ML {probability_up:.1%}; validation {validation:.1%}; "
-        f"trend {trend:.1%}; confidence {confidence_pct:.1f}%"
+        f"ML {probability_up:.1%}; validation {validation:.1%}"
+        f"{calibration_detail}; trend {trend:.1%}; confidence {confidence_pct:.1f}%"
     )
     return SignalDecision(
         signal=signal,

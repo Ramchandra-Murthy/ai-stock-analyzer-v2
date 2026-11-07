@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import accuracy_score, brier_score_loss, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -33,6 +33,41 @@ class ModelValidation:
     train_samples: int
     test_samples: int
     positive_rate: float
+    calibration_gap: float | None = None
+    brier_score: float | None = None
+
+
+def expected_calibration_error(
+    actual: pd.Series | np.ndarray,
+    probabilities: np.ndarray,
+    *,
+    bins: int = 10,
+) -> float:
+    """Return sample-weighted expected calibration error on binary outcomes."""
+    if isinstance(bins, bool) or not isinstance(bins, int) or not 2 <= bins <= 20:
+        raise ValueError("bins must be an integer between 2 and 20")
+    actual_values = np.asarray(actual, dtype=float).reshape(-1)
+    probability_values = np.asarray(probabilities, dtype=float).reshape(-1)
+    if actual_values.size == 0 or actual_values.size != probability_values.size:
+        raise ValueError("actual outcomes and probabilities must have equal non-zero length")
+    if not np.isfinite(actual_values).all() or not np.isin(actual_values, [0.0, 1.0]).all():
+        raise ValueError("actual outcomes must contain only finite binary values")
+    if (
+        not np.isfinite(probability_values).all()
+        or (probability_values < 0.0).any()
+        or (probability_values > 1.0).any()
+    ):
+        raise ValueError("probabilities must be finite and between 0 and 1")
+
+    bin_indices = np.minimum((probability_values * bins).astype(int), bins - 1)
+    error = 0.0
+    for bin_index in range(bins):
+        mask = bin_indices == bin_index
+        if mask.any():
+            error += float(mask.sum() / actual_values.size) * abs(
+                float(actual_values[mask].mean()) - float(probability_values[mask].mean())
+            )
+    return error
 
 
 def make_training_dataset(
@@ -131,7 +166,9 @@ def train_model(
         roc_auc=roc_auc,
         train_samples=len(x_train),
         test_samples=len(x_test),
-        positive_rate=float(y.mean()),
+        positive_rate=float(y_test.mean()),
+        calibration_gap=expected_calibration_error(y_test, probabilities),
+        brier_score=float(brier_score_loss(y_test, probabilities)),
     )
 
     if refit_full:
