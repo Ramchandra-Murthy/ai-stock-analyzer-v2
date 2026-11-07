@@ -69,13 +69,11 @@ def risk_plan_frame(
     )
     frame["Risk-based quantity"] = risk_quantity.astype(int)
     frame["Capital-based quantity"] = capital_quantity.astype(int)
-    frame["Suggested quantity"] = frame[
-        ["Risk-based quantity", "Capital-based quantity"]
-    ].min(axis=1).astype(int)
+    frame["Suggested quantity"] = (
+        frame[["Risk-based quantity", "Capital-based quantity"]].min(axis=1).astype(int)
+    )
     frame["Planned capital"] = (entry * frame["Suggested quantity"]).fillna(0).round(2)
-    frame["Planned risk"] = (
-        risk_per_share * frame["Suggested quantity"]
-    ).fillna(0).round(2)
+    frame["Planned risk"] = (risk_per_share * frame["Suggested quantity"]).fillna(0).round(2)
 
     return frame.reset_index(drop=True)
 
