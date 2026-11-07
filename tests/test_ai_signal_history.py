@@ -186,3 +186,34 @@ def test_horizon_outcome_ignores_non_finite_prices() -> None:
 
     assert bool(history.loc[0, "completed"]) is True
     assert history.loc[0, "outcome_price"] == pytest.approx(105.0)
+
+
+
+def test_horizon_outcome_uses_adjusted_basis_across_a_split() -> None:
+    from zoneinfo import ZoneInfo
+
+    from ai_trading.signal_history import attach_horizon_outcomes
+
+    record = record_signal(
+        symbol="RELIANCE",
+        exchange="NSE",
+        signal="LONG",
+        probability_up=0.7,
+        confidence_pct=65.0,
+        validation_pct=72.0,
+        trend_pct=60.0,
+        entry_price=100.0,
+        adjusted_entry_price=50.0,
+        horizon_days=1,
+        timestamp=datetime(2026, 10, 1, 9, 0, tzinfo=ZoneInfo("Asia/Kolkata")),
+    )
+    index = pd.date_range("2026-10-01", periods=2, freq="B", tz="Asia/Kolkata")
+    frame = pd.DataFrame(
+        {"Close": [100.0, 50.0], "Adj Close": [50.0, 50.0]},
+        index=index,
+    )
+
+    history = attach_horizon_outcomes([record], {"NSE:RELIANCE": frame})
+
+    assert history.loc[0, "outcome_price"] == pytest.approx(50.0)
+    assert history.loc[0, "return_pct"] == pytest.approx(0.0)
