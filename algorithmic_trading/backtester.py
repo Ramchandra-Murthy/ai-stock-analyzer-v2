@@ -65,9 +65,7 @@ def _trade_returns(data: pd.DataFrame) -> pd.Series:
 
     exits = (~active) & previous.ne(0.0)
     closing_events = exits | reversals
-    closing_cost = transaction_cost.where(exits, 0.0) + reversal_closing_cost.where(
-        reversals, 0.0
-    )
+    closing_cost = transaction_cost.where(exits, 0.0) + reversal_closing_cost.where(reversals, 0.0)
     closing_trade_id = trade_id.shift(1).where(closing_events)
     closing_factors = (
         pd.DataFrame(
@@ -83,6 +81,7 @@ def _trade_returns(data: pd.DataFrame) -> pd.Series:
     trade_growth = (1.0 + active_returns).groupby(trade_id.loc[active]).prod()
     trade_growth = trade_growth.mul(closing_factors.reindex(trade_growth.index, fill_value=1.0))
     return trade_growth - 1.0
+
 
 def run_backtest(
     prices: pd.Series,
