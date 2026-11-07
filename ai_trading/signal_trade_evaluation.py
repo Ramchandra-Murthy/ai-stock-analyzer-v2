@@ -25,6 +25,9 @@ EVALUATION_COLUMNS = [
     "benchmark_return_pct",
     "directional_benchmark_return_pct",
     "excess_return_pct",
+    "sector_benchmark_return_pct",
+    "directional_sector_benchmark_return_pct",
+    "sector_excess_return_pct",
     "evaluated",
 ]
 
@@ -38,7 +41,9 @@ def evaluate_signal_trades(
     return_pct must already be direction-adjusted (positive is favourable for
     either LONG or SHORT). If benchmark_return_pct is present, it is interpreted
     as the underlying benchmark's buy-and-hold return over the identical
-    observation window; it is direction-adjusted before comparison.
+    observation window; it is direction-adjusted before comparison. If
+    sector_benchmark_return_pct is present, it is treated the same way and
+    compared separately; missing sector matches remain unavailable.
     """
     if history.empty:
         return pd.DataFrame(columns=EVALUATION_COLUMNS)
@@ -83,6 +88,24 @@ def evaluate_signal_trades(
         result["directional_benchmark_return_pct"] = float("nan")
         result["excess_return_pct"] = float("nan")
 
+    if "sector_benchmark_return_pct" in result.columns:
+        sector_benchmark = pd.to_numeric(result["sector_benchmark_return_pct"], errors="coerce")
+        sector_benchmark = sector_benchmark.where(
+            sector_benchmark.map(
+                lambda value: pd.isna(value) or math.isfinite(float(value))
+            )
+        )
+        direction = result["signal"].map({"LONG": 1.0, "SHORT": -1.0})
+        result["sector_benchmark_return_pct"] = sector_benchmark
+        result["directional_sector_benchmark_return_pct"] = sector_benchmark * direction
+        result["sector_excess_return_pct"] = (
+            result["net_return_pct"] - result["directional_sector_benchmark_return_pct"]
+        )
+    else:
+        result["sector_benchmark_return_pct"] = float("nan")
+        result["directional_sector_benchmark_return_pct"] = float("nan")
+        result["sector_excess_return_pct"] = float("nan")
+
     result["evaluated"] = True
     for column in EVALUATION_COLUMNS:
         if column not in result:
@@ -103,6 +126,10 @@ def summarize_signal_trade_evaluation(evaluation: pd.DataFrame) -> pd.DataFrame:
         "avg_directional_benchmark_return_pct",
         "avg_excess_return_pct",
         "excess_win_rate_pct",
+        "avg_sector_benchmark_return_pct",
+        "avg_directional_sector_benchmark_return_pct",
+        "avg_sector_excess_return_pct",
+        "sector_excess_win_rate_pct",
     ]
     if evaluation.empty:
         return pd.DataFrame(columns=columns)
@@ -129,6 +156,16 @@ def summarize_signal_trade_evaluation(evaluation: pd.DataFrame) -> pd.DataFrame:
             if "excess_return_pct" in group
             else pd.Series(dtype=float)
         )
+        sector_benchmark = (
+            pd.to_numeric(group["directional_sector_benchmark_return_pct"], errors="coerce").dropna()
+            if "directional_sector_benchmark_return_pct" in group
+            else pd.Series(dtype=float)
+        )
+        sector_excess = (
+            pd.to_numeric(group["sector_excess_return_pct"], errors="coerce").dropna()
+            if "sector_excess_return_pct" in group
+            else pd.Series(dtype=float)
+        )
         rows.append(
             {
                 **dict(zip(GROUP_COLUMNS, keys, strict=True)),
@@ -152,6 +189,22 @@ def summarize_signal_trade_evaluation(evaluation: pd.DataFrame) -> pd.DataFrame:
                 ),
                 "excess_win_rate_pct": (
                     float((excess > 0.0).mean() * 100.0) if not excess.empty else float("nan")
+                ),
+                "avg_sector_benchmark_return_pct": (
+                    float(pd.to_numeric(group["sector_benchmark_return_pct"], errors="coerce").mean())
+                    if "sector_benchmark_return_pct" in group
+                    else float("nan")
+                ),
+                "avg_directional_sector_benchmark_return_pct": (
+                    float(sector_benchmark.mean()) if not sector_benchmark.empty else float("nan")
+                ),
+                "avg_sector_excess_return_pct": (
+                    float(sector_excess.mean()) if not sector_excess.empty else float("nan")
+                ),
+                "sector_excess_win_rate_pct": (
+                    float((sector_excess > 0.0).mean() * 100.0)
+                    if not sector_excess.empty
+                    else float("nan")
                 ),
             }
         )
