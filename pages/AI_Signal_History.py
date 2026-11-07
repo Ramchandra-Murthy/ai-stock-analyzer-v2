@@ -91,9 +91,10 @@ if not isinstance(history, pd.DataFrame) or history.empty:
 # Backfill market movement for rows written before neutral signals were separated
 # from directional strategy returns.
 if "market_return_pct" not in history.columns:
-    entry = pd.to_numeric(
-        history["adjusted_entry_price"], errors="coerce"
-    ) if "adjusted_entry_price" in history else pd.Series(float("nan"), index=history.index)
+    if "adjusted_entry_price" in history:
+        entry = pd.to_numeric(history["adjusted_entry_price"], errors="coerce")
+    else:
+        entry = pd.Series(float("nan"), index=history.index)
     if "entry_price" in history:
         entry = entry.fillna(pd.to_numeric(history["entry_price"], errors="coerce"))
     outcome = (
