@@ -11,6 +11,7 @@ import math
 
 import pandas as pd
 
+BREAKEVEN_TOLERANCE_PCT = 1e-12
 GROUP_COLUMNS = ["signal", "horizon_days", "exchange"]
 PERFORMANCE_COLUMNS = [
     *GROUP_COLUMNS,
@@ -98,11 +99,18 @@ def summarize_signal_performance(history: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for keys, group in completed.groupby(GROUP_COLUMNS, dropna=False, sort=True):
         returns = group["return_pct"].astype(float).reset_index(drop=True)
-        wins = int((returns > 0.0).sum())
-        losses = int((returns < 0.0).sum())
-        breakeven = int((returns == 0.0).sum())
-        gross_profit = float(returns.loc[returns > 0.0].sum())
-        gross_loss = float(-returns.loc[returns < 0.0].sum())
+        # Treat numerical noise around zero as break-even consistently across
+        # classification, expectancy, profit factor and drawdown calculations.
+        near_zero = returns.abs() <= BREAKEVEN_TOLERANCE_PCT
+        returns = returns.mask(near_zero, 0.0)
+        wins_mask = returns > BREAKEVEN_TOLERANCE_PCT
+        losses_mask = returns < -BREAKEVEN_TOLERANCE_PCT
+        breakeven_mask = returns.abs() <= BREAKEVEN_TOLERANCE_PCT
+        wins = int(wins_mask.sum())
+        losses = int(losses_mask.sum())
+        breakeven = int(breakeven_mask.sum())
+        gross_profit = float(returns.loc[wins_mask].sum())
+        gross_loss = float(-returns.loc[losses_mask].sum())
         ci_low, ci_high = _wilson_interval(wins, len(returns))
         rows.append(
             {
@@ -116,9 +124,9 @@ def summarize_signal_performance(history: pd.DataFrame) -> pd.DataFrame:
                 "win_rate_ci_high_pct": ci_high,
                 "avg_return_pct": float(returns.mean()),
                 "median_return_pct": float(returns.median()),
-                "avg_win_pct": float(returns.loc[returns > 0.0].mean()) if wins else float("nan"),
+                "avg_win_pct": float(returns.loc[wins_mask].mean()) if wins else float("nan"),
                 "avg_loss_pct": (
-                    float(returns.loc[returns < 0.0].mean()) if losses else float("nan")
+                    float(returns.loc[losses_mask].mean()) if losses else float("nan")
                 ),
                 "expectancy_pct": float(returns.mean()),
                 "profit_factor": gross_profit / gross_loss if gross_loss > 0.0 else float("nan"),
