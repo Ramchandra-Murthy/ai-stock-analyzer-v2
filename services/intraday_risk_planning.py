@@ -33,18 +33,14 @@ def risk_plan_frame(
 
     if "Risk per share" not in frame.columns:
         if {"Entry reference", "Stop reference"}.issubset(frame.columns):
-            frame["Risk per share"] = (
-                frame["Entry reference"] - frame["Stop reference"]
-            ).abs()
+            frame["Risk per share"] = (frame["Entry reference"] - frame["Stop reference"]).abs()
         else:
             frame["Risk per share"] = float("nan")
 
     entry_column = (
         "Entry reference"
         if "Entry reference" in frame.columns
-        else "Price"
-        if "Price" in frame.columns
-        else None
+        else "Price" if "Price" in frame.columns else None
     )
     entry = (
         pd.to_numeric(frame[entry_column], errors="coerce")
@@ -59,12 +55,18 @@ def risk_plan_frame(
 
     frame["Risk budget"] = risk_budget
     frame["Capital limit"] = capital_limit
-    risk_quantity = (risk_budget / risk_per_share.where(valid_risk)).replace(
-        [float("inf"), float("-inf")], float("nan")
-    ).fillna(0).floordiv(1)
-    capital_quantity = (capital_limit / entry.where(valid_entry)).replace(
-        [float("inf"), float("-inf")], float("nan")
-    ).fillna(0).floordiv(1)
+    risk_quantity = (
+        (risk_budget / risk_per_share.where(valid_risk))
+        .replace([float("inf"), float("-inf")], float("nan"))
+        .fillna(0)
+        .floordiv(1)
+    )
+    capital_quantity = (
+        (capital_limit / entry.where(valid_entry))
+        .replace([float("inf"), float("-inf")], float("nan"))
+        .fillna(0)
+        .floordiv(1)
+    )
     frame["Risk-based quantity"] = risk_quantity.astype(int)
     frame["Capital-based quantity"] = capital_quantity.astype(int)
     frame["Suggested quantity"] = frame[
