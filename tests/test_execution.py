@@ -18,8 +18,6 @@ def test_schedules_sum_exactly_to_the_order():
 def test_u_shape_is_heavier_at_the_ends():
     p = u_shaped_profile(11)
     assert p[0] > p[5] < p[-1] and p.sum() == pytest.approx(1.0)
-
-
 def test_pov_respects_participation_and_can_leave_a_remainder():
     out = pov_schedule(10_000, [1000] * 5, 0.10)
     assert list(out) == [100] * 5  # 10% of each slice; 9,500 shares unfilled
@@ -41,8 +39,6 @@ def test_splitting_reduces_impact_on_a_flat_market():
     ten = simulate_execution("buy", twap_schedule(50_000, 10), px, vol, **kw)
     assert ten.impact_bps < one.impact_bps
     assert ten.drift_bps == pytest.approx(0.0)
-
-
 def test_buy_in_a_rising_market_pays_drift_and_sell_gains_from_it():
     px = np.linspace(100, 101, 10)
     vol = np.full(10, 10_000.0)
@@ -51,8 +47,6 @@ def test_buy_in_a_rising_market_pays_drift_and_sell_gains_from_it():
     sell = simulate_execution("sell", twap_schedule(1000, 10), px, vol, **kw)
     assert buy.shortfall_bps > 0 > sell.shortfall_bps
     assert buy.shortfall_rupees == pytest.approx(-sell.shortfall_rupees)
-
-
 def test_rupee_shortfall_matches_hand_calculation():
     r = simulate_execution(
         "buy", [100, 100], [100.0, 102.0], [1.0, 1.0], adv=1e9, daily_vol=0.0, half_spread_bps=0.0
@@ -94,8 +88,6 @@ def test_execution_rejects_non_finite_or_inconsistent_inputs(schedule, prices, v
     params = {"adv": 1_000_000.0, "daily_vol": 0.02, **kwargs}
     with pytest.raises(ValueError):
         simulate_execution("buy", schedule, prices, volumes, **params)
-
-
 def test_square_root_impact_rejects_non_finite_parameters():
     with pytest.raises(ValueError):
         square_root_impact(1, float("inf"), 0.02)
