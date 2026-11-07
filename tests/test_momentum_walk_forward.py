@@ -93,3 +93,70 @@ def test_insufficient_evidence_when_too_few_folds_have_spread_metrics():
     assert report.insufficient_evidence is True
     assert report.mean_spread_pct is None
     assert report.spread_std_dev_pct is None
+
+
+def test_purges_labels_that_reach_the_next_fold_boundary():
+    rows = [
+        {
+            **row,
+            "label_end_date": f"2026-01-{day + 1:02d}",
+        }
+        for day, row in enumerate(_rows(), start=1)
+    ]
+
+    report = evaluate_momentum_walk_forward(
+        rows,
+        n_splits=3,
+        min_observations_per_fold=1,
+        label_end_key="label_end_date",
+    )
+
+    assert [fold.observation_count for fold in report.folds] == [1, 1, 2]
+    assert report.purged_observation_count == 2
+    assert report.observation_count == 6
+
+
+def test_keeps_all_observations_from_the_same_date_in_one_fold():
+    rows = [
+        {"date": "2026-01-01", "momentum_score": 10, "forward_return_pct": 1.0},
+        {"date": "2026-01-01", "momentum_score": 20, "forward_return_pct": 2.0},
+        {"date": "2026-01-02", "momentum_score": 30, "forward_return_pct": 3.0},
+        {"date": "2026-01-03", "momentum_score": 70, "forward_return_pct": 4.0},
+        {"date": "2026-01-04", "momentum_score": 80, "forward_return_pct": 5.0},
+    ]
+
+    report = evaluate_momentum_walk_forward(rows, n_splits=2, min_observations_per_fold=1)
+
+    assert [(fold.start_date, fold.end_date) for fold in report.folds] == [
+        ("2026-01-01", "2026-01-02"),
+        ("2026-01-03", "2026-01-04"),
+    ]
+    assert [fold.observation_count for fold in report.folds] == [3, 2]
+
+
+def test_rejects_noncanonical_iso_date_strings():
+    rows = _rows()
+    rows[0] = {**rows[0], "date": "2026-W01-1"}
+
+    with pytest.raises(ValueError, match="canonical YYYY-MM-DD"):
+        evaluate_momentum_walk_forward(rows, n_splits=3)
+
+
+def test_rejects_label_end_before_observation_date():
+    rows = [{**row, "label_end_date": "2025-12-31"} for row in _rows()]
+
+    with pytest.raises(ValueError, match="must not precede"):
+        evaluate_momentum_walk_forward(rows, n_splits=3, label_end_key="label_end_date")
+
+
+def test_rejects_purging_that_empties_a_fold():
+    rows = [
+        {
+            **row,
+            "label_end_date": "2026-01-06",
+        }
+        for row in _rows()
+    ]
+
+    with pytest.raises(ValueError, match="left fold 1 empty"):
+        evaluate_momentum_walk_forward(rows, n_splits=3, label_end_key="label_end_date")
