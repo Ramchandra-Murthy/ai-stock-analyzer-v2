@@ -77,7 +77,7 @@ def test_neutral_horizon_outcome_keeps_actual_market_return():
         trend_pct=50.0,
         entry_price=100.0,
         horizon_days=1,
-        timestamp=datetime(2026, 10, 1, 9, 0, tzinfo=UTC),
+        timestamp=datetime(2026, 10, 1, 10, 0, tzinfo=UTC),
     )
     index = pd.date_range("2026-10-01", periods=2, freq="B", tz="Asia/Kolkata")
     frame = pd.DataFrame({"Close": [100.0, 108.0]}, index=index)
