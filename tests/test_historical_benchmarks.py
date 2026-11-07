@@ -17,14 +17,16 @@ def _frame(values, dates):
 
 
 def _history(timestamp=datetime(2026, 1, 5, 10, 0, tzinfo=IST)):
-    return pd.DataFrame({
-        "timestamp": [timestamp],
-        "outcome_timestamp": [pd.Timestamp("2026-01-06", tz=IST)],
-        "symbol": ["TCS"],
-        "exchange": ["NSE"],
-        "signal": ["LONG"],
-        "horizon_days": [1],
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": [timestamp],
+            "outcome_timestamp": [pd.Timestamp("2026-01-06", tz=IST)],
+            "symbol": ["TCS"],
+            "exchange": ["NSE"],
+            "signal": ["LONG"],
+            "horizon_days": [1],
+        }
+    )
 
 
 def test_intraday_signal_uses_previous_completed_close_and_exact_outcome_session():
@@ -73,9 +75,7 @@ def test_missing_benchmark_frame_is_explicit_and_does_not_fabricate_return():
 
 def test_unmapped_sector_keeps_nifty_comparison_and_marks_sector_unavailable():
     history = _history().assign(symbol="UNKNOWNCO")
-    frames = {"^NSEI": _frame(
-        [100.0, 103.0, 105.0], ["2026-01-02", "2026-01-05", "2026-01-06"]
-    )}
+    frames = {"^NSEI": _frame([100.0, 103.0, 105.0], ["2026-01-02", "2026-01-05", "2026-01-06"])}
 
     result = attach_historical_benchmarks(history, frames)
 
