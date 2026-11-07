@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from ai_trading.decision_engine import (
     SignalDecision,
     build_signal_decision,
@@ -30,6 +32,8 @@ def build_regime_aware_decision(
         raise ValueError(f"unsupported regime: {regime}")
     if not 0.0 <= regime_strength <= 1.0:
         raise ValueError("regime_strength must be between 0 and 1")
+    if not math.isfinite(trend_score):
+        raise ValueError("trend_score must be finite")
 
     regime_score = REGIME_ADJUSTMENTS[regime] * regime_strength
     adjusted_trend = max(-1.0, min(1.0, 0.75 * trend_score + 0.25 * regime_score))
