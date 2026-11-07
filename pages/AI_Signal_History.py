@@ -271,13 +271,16 @@ else:
     )
     if trade_evaluation["excess_return_pct"].notna().any():
         st.caption(
-            "Benchmark excess is direction-adjusted and shown only where a matching "
-            "benchmark_return_pct observation is present in the history."
+            "NIFTY 50 excess is direction-adjusted and shown only where a matching "
+            "benchmark observation exists. Sector excess is calculated separately "
+            "where a mapped sector-index observation is available. Both are measured "
+            "against net returns after estimated costs."
         )
     else:
         st.caption(
             "Benchmark comparison is pending matching benchmark-return observations; "
-            "no benchmark performance is inferred or fabricated."
+            "no benchmark performance is inferred or fabricated. Sector-relative "
+            "metrics also remain unavailable until a mapped sector index is matched."
         )
 
 completed = history.loc[history["completed"].fillna(False)].copy()
