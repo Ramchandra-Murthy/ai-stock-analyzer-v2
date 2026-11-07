@@ -160,7 +160,7 @@ elif st.button("Refresh historical benchmark returns"):
             save_signal_snapshot(records, history)
         except SignalHistoryStoreError as exc:
             st.warning(f"Benchmark results are available in this session but could not be persisted: {exc}")
-    matched = int(history["benchmark_status"].eq("matched").sum())
+    matched = int(history["benchmark_status"].eq("matched_daily_close_proxy").sum())
     st.success(f"Matched NIFTY 50 returns for {matched}/{len(history)} signal observations.")
     missing_benchmarks = benchmark_diagnostics.get("missing", [])
     if missing_benchmarks:
