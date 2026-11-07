@@ -5,6 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from ai_trading.benchmark_coverage import summarize_benchmark_coverage
 from ai_trading.historical_benchmarks import (
     NIFTY_50_TICKER,
     SECTOR_INDEX_TICKERS,
@@ -172,6 +173,15 @@ elif st.button("Refresh historical benchmark returns"):
         )
 
 if "benchmark_return_pct" in history.columns:
+    st.subheader("Benchmark Data Coverage")
+    coverage = summarize_benchmark_coverage(history)
+    st.dataframe(coverage, use_container_width=True, hide_index=True)
+    st.caption(
+        "Coverage is matched observations divided by eligible observations. NIFTY 50 "
+        "uses all signal observations; sector coverage excludes symbols without a "
+        "curated sector-index mapping. Status breakdowns explain unmatched records. "
+        "Matched values are daily-close proxies, not exact intraday benchmark prices."
+    )
     benchmark_columns = [
         column
         for column in (
