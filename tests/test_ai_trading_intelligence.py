@@ -41,7 +41,7 @@ def test_ml_labels_use_adjusted_close_across_stock_split() -> None:
     index = pd.date_range("2026-01-01", periods=80, freq="B")
     adjusted = pd.Series([100.0 + i for i in range(80)], index=index)
     raw = adjusted.copy()
-    raw.loc[index[40] :] = raw.loc[index[40]:] / 2.0
+    raw.loc[index[40] :] = raw.loc[index[40] :] / 2.0
     frame = pd.DataFrame(
         {
             "Open": raw,
