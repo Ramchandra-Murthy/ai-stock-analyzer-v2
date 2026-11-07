@@ -42,7 +42,9 @@ def _reference(data: pd.DataFrame) -> pd.Series:
 
 def _frame(position, returns, transaction_cost=None) -> pd.DataFrame:
     index = pd.bdate_range("2024-01-01", periods=len(position))
-    costs = np.zeros(len(position)) if transaction_cost is None else np.asarray(transaction_cost, float)
+    costs = (
+        np.zeros(len(position)) if transaction_cost is None else np.asarray(transaction_cost, float)
+    )
     return pd.DataFrame(
         {
             "position": np.asarray(position, float),
@@ -86,8 +88,6 @@ def test_returns_empty_float_series_when_flat() -> None:
     result = _trade_returns(_frame([0, 0, 0], [0.01, 0.02, 0.03]))
 
     assert result.empty and result.dtype == float
-
-
 
 def test_exit_cost_is_allocated_to_the_closed_trade() -> None:
     data = _frame(
