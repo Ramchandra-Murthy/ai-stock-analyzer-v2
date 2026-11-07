@@ -64,7 +64,8 @@ def test_neutral_records_market_movement_without_fabricating_strategy_return():
     assert history.loc[0, "market_return_pct"] == pytest.approx(10.0)
 
 
-def test_invalid_outcome_prices_remain_pending():
+@pytest.mark.parametrize("bad_price", [0.0, -1.0, float("nan"), float("inf"), "invalid"])
+def test_invalid_outcome_prices_remain_pending(bad_price):
     record = record_signal(
         symbol="INFY",
         exchange="NSE",
@@ -76,10 +77,7 @@ def test_invalid_outcome_prices_remain_pending():
         entry_price=100.0,
         horizon_days=5,
     )
-    history = attach_outcomes(
-        [record],
-        {"INFY": float("nan")},
-    )
+    history = attach_outcomes([record], {"INFY": bad_price})
 
     assert bool(history.loc[0, "completed"]) is False
     assert pd.isna(history.loc[0, "outcome_price"])
