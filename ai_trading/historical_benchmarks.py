@@ -64,7 +64,7 @@ def _benchmark_return(
         return None, "outcome_precedes_signal"
     # A daily close is not observable before 15:30 IST. Use the previous
     # completed session for intraday signals; use same-day close after market.
-    start_date = start.normalize()
+    start_date = start.normalize().tz_localize(None)
     if start.time() < time(15, 30):
         eligible = closes.loc[closes.index < start_date]
     else:
