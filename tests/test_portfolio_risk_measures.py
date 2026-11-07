@@ -82,3 +82,20 @@ def test_summary_keys_and_ordering():
     s = rm.risk_summary(_rets(), {"A": 1, "B": 1, "C": 1})
     assert s["var_99"] >= s["var_95"] and s["cvar_99"] >= s["cvar_95"]
     assert s["max_drawdown"] <= 0
+
+
+@pytest.mark.parametrize("bad_value", [float("nan"), float("inf"), float("-inf")])
+def test_portfolio_risk_rejects_missing_or_non_finite_asset_returns(bad_value):
+    returns = _rets(100)
+    returns.loc[returns.index[0], "A"] = bad_value
+    with pytest.raises(ValueError, match="finite and non-missing"):
+        rm.portfolio_returns(returns, {"A": 0.5, "B": 0.5})
+    with pytest.raises(ValueError, match="finite and non-missing"):
+        rm.risk_contributions(returns, {"A": 0.5, "B": 0.5})
+
+
+def test_portfolio_risk_rejects_asset_return_below_total_loss():
+    returns = _rets(100)
+    returns.loc[returns.index[0], "A"] = -1.01
+    with pytest.raises(ValueError, match="below -100%"):
+        rm.portfolio_returns(returns, {"A": 0.5, "B": 0.5})
