@@ -208,3 +208,26 @@ def test_compare_timeframe_backtests_rejects_empty_input() -> None:
 
     with pytest.raises(ValueError, match="at least one timeframe"):
         compare_timeframe_backtests({})
+
+
+
+def test_trade_metrics_include_exit_costs_in_win_rate_and_profit_factor() -> None:
+    index = pd.date_range("2026-01-01", periods=4, freq="D")
+    prices = pd.Series([100.0, 101.5, 101.5, 101.5], index=index)
+    signals = pd.Series([1.0, 1.0, 0.0, 0.0], index=index)
+
+    _, metrics = run_backtest(prices, signals, cost_bps=100.0)
+
+    assert metrics.trade_count == 1
+    assert metrics.win_rate == pytest.approx(0.0)
+    assert metrics.profit_factor == pytest.approx(0.0)
+
+
+def test_same_direction_position_resizing_remains_one_trade() -> None:
+    index = pd.date_range("2026-01-01", periods=5, freq="D")
+    prices = pd.Series([100.0, 101.0, 102.0, 103.0, 104.0], index=index)
+    signals = pd.Series([0.5, 1.0, 1.0, 0.0, 0.0], index=index)
+
+    _, metrics = run_backtest(prices, signals, cost_bps=0.0)
+
+    assert metrics.trade_count == 1
