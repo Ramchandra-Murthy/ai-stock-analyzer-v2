@@ -201,10 +201,14 @@ def save_signal_snapshot(
             {"on_conflict": "signal_timestamp,symbol,exchange"},
             safe=",",
         )
+        supabase_payload = [
+            {key: value for key, value in item.items() if key != "outcome" or value is not None}
+            for item in payload
+        ]
         _supabase_request(
             "POST",
             query,
-            payload,
+            supabase_payload,
             prefer="resolution=merge-duplicates,return=minimal",
         )
     else:
@@ -276,14 +280,17 @@ def load_signal_snapshot() -> tuple[list[SignalRecord], pd.DataFrame]:
         if not isinstance(record_payload, dict):
             continue
         try:
-            records.append(_record_from_payload(record_payload))
+            record = _record_from_payload(record_payload)
         except (KeyError, TypeError, ValueError) as exc:
             logger.warning("Skipping malformed persisted signal record: %s", exc)
             continue
+        records.append(record)
         outcome = row.get("outcome")
         if isinstance(outcome, dict):
             outcome_rows.append(outcome)
+        else:
+            pending = attach_outcomes([record], {})
+            if not pending.empty:
+                outcome_rows.append(pending.iloc[0].to_dict())
 
-    if not outcome_rows:
-        return records, attach_outcomes(records, {})
     return records, pd.DataFrame(outcome_rows)
