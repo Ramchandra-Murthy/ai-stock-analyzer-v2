@@ -89,6 +89,7 @@ def test_close_derived_signal_enters_on_the_following_bar():
     assert result.equity.iloc[1] == pytest.approx(1.0)
     assert result.equity.iloc[2] == pytest.approx(1.1)
 
+
 @pytest.mark.parametrize("bad_cost", [float("nan"), float("inf"), float("-inf")])
 def test_non_finite_costs_are_rejected(bad_cost):
     with pytest.raises(ValueError, match="finite and non-negative"):
