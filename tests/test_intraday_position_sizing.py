@@ -25,9 +25,6 @@ def test_short_position_size_and_reward():
     assert result.planned_rr == 2
 
 
-import pytest
-
-
 @pytest.mark.parametrize(
     "values",
     [
