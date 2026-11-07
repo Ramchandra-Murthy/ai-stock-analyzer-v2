@@ -129,6 +129,66 @@ def attach_outcomes(
     return pd.DataFrame(rows)
 
 
+
+def attach_horizon_outcomes(
+    records: list[SignalRecord],
+    frames: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
+    """Attach outcomes only after the configured number of future trading bars.
+
+    Frames may be keyed by ``EXCHANGE:SYMBOL`` (preferred) or by symbol. The
+    signal timestamp is converted to the frame timezone before selecting bars.
+    """
+    rows = []
+    for record in records:
+        key = f"{record.exchange}:{record.symbol}"
+        frame = frames.get(key, frames.get(record.symbol, pd.DataFrame()))
+        outcome_price = None
+        outcome_timestamp = None
+
+        if frame is not None and not frame.empty and "Close" in frame.columns:
+            close = pd.to_numeric(frame["Close"], errors="coerce")
+            close = close.where(close.map(lambda value: pd.notna(value) and pd.notna(float(value))))
+            close = close.where(close > 0).dropna().sort_index()
+            if isinstance(close.index, pd.DatetimeIndex):
+                signal_time = pd.Timestamp(record.timestamp)
+                if close.index.tz is None:
+                    if signal_time.tzinfo is not None:
+                        signal_time = signal_time.tz_convert("Asia/Kolkata").tz_localize(None)
+                elif signal_time.tzinfo is None:
+                    signal_time = signal_time.tz_localize(close.index.tz)
+                else:
+                    signal_time = signal_time.tz_convert(close.index.tz)
+                future = close.loc[close.index > signal_time]
+                if len(future) >= record.horizon_days:
+                    outcome_timestamp = future.index[record.horizon_days - 1]
+                    outcome_price = float(future.iloc[record.horizon_days - 1])
+
+        updated = SignalRecord(**{**record.__dict__, "outcome_price": outcome_price})
+        rows.append(
+            {
+                "timestamp": updated.timestamp,
+                "symbol": updated.symbol,
+                "exchange": updated.exchange,
+                "signal": updated.signal,
+                "probability_up_pct": updated.probability_up_pct,
+                "confidence_pct": updated.confidence_pct,
+                "raw_confidence_pct": updated.raw_confidence_pct,
+                "adaptive_confidence_pct": updated.adaptive_confidence_pct,
+                "adaptive_adjustment_pct": updated.adaptive_adjustment_pct,
+                "adaptive_samples": updated.adaptive_samples,
+                "validation_pct": updated.validation_pct,
+                "trend_pct": updated.trend_pct,
+                "entry_price": updated.entry_price,
+                "outcome_price": updated.outcome_price,
+                "outcome_timestamp": outcome_timestamp,
+                "return_pct": updated.return_pct,
+                "horizon_days": updated.horizon_days,
+                "completed": outcome_price is not None,
+            }
+        )
+    return pd.DataFrame(rows)
+
 def summarize_outcomes(history: pd.DataFrame) -> pd.DataFrame:
     """Summarize completed signal outcomes by signal type."""
     if history.empty:
