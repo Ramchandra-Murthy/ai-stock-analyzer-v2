@@ -122,7 +122,6 @@ def test_summary_by_signal():
     assert summary.loc[0, "win_rate_pct"] == pytest.approx(50.0)
 
 
-
 def test_neutral_summary_reports_underlying_move_not_strategy_win_rate():
     record = record_signal(
         symbol="INFY",
