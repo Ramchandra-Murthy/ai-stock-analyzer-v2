@@ -72,12 +72,24 @@ if isinstance(records, list) and records and st.button("Refresh completed signal
 
 history = st.session_state.get("ai_signal_history")
 
-if not isinstance(history, pd.DataFrame):
+if not isinstance(history, pd.DataFrame) or history.empty:
     st.info(
         "No signal history has been recorded yet. Run the AI Trading Scanner "
         "and use its signal records to populate this research ledger."
     )
     st.stop()
+
+# Backfill market movement for rows written before neutral signals were separated
+# from directional strategy returns.
+if "market_return_pct" not in history.columns:
+    entry = pd.to_numeric(history.get("adjusted_entry_price"), errors="coerce")
+    if entry is None:
+        entry = pd.Series(float("nan"), index=history.index)
+    entry = entry.fillna(pd.to_numeric(history.get("entry_price"), errors="coerce"))
+    outcome = pd.to_numeric(history.get("outcome_price"), errors="coerce")
+    history["market_return_pct"] = (outcome / entry - 1.0) * 100.0
+neutral_mask = history["signal"].eq("NEUTRAL")
+history.loc[neutral_mask, "return_pct"] = pd.NA
 
 st.subheader("Signal History")
 st.dataframe(history, use_container_width=True, hide_index=True)
