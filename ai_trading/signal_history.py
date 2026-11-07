@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from datetime import UTC, datetime
 
 import pandas as pd
@@ -148,8 +149,9 @@ def attach_horizon_outcomes(
 
         if frame is not None and not frame.empty and "Close" in frame.columns:
             close = pd.to_numeric(frame["Close"], errors="coerce")
-            close = close.where(close.map(lambda value: pd.notna(value) and pd.notna(float(value))))
+            close = close.where(close.map(lambda value: pd.notna(value) and math.isfinite(float(value))))
             close = close.where(close > 0).dropna().sort_index()
+            close = close.loc[~close.index.duplicated(keep="last")]
             if isinstance(close.index, pd.DatetimeIndex):
                 signal_time = pd.Timestamp(record.timestamp)
                 if close.index.tz is None:
