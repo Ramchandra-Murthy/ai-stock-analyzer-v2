@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import numpy as np
 import pandas as pd
 
 
@@ -31,8 +32,13 @@ class GuardConfig:
         _fraction(self.take_profit, "take_profit")
         _fraction(self.trailing_stop, "trailing_stop")
         _fraction(self.kill_switch_drawdown, "kill_switch_drawdown")
-        if self.cost_bps < 0:
-            raise ValueError("cost_bps cannot be negative.")
+        if (
+            isinstance(self.cost_bps, bool)
+            or not isinstance(self.cost_bps, (int, float, np.integer, np.floating))
+            or not np.isfinite(self.cost_bps)
+            or self.cost_bps < 0
+        ):
+            raise ValueError("cost_bps must be finite and non-negative.")
 
 
 @dataclass(frozen=True)
@@ -54,8 +60,13 @@ def simulate_with_guards(close: pd.Series, signal: pd.Series, config: GuardConfi
     config.validate()
     px = pd.to_numeric(close, errors="coerce").astype(float)
     sig = signal.reindex(px.index).fillna(False).astype(bool)
-    if px.isna().any() or (px <= 0).any() or len(px) < 30:
-        raise ValueError("close must be at least 30 positive prices with no gaps.")
+    if (
+        px.isna().any()
+        or not np.isfinite(px.to_numpy(dtype=float)).all()
+        or (px <= 0).any()
+        or len(px) < 30
+    ):
+        raise ValueError("close must be at least 30 finite positive prices with no gaps.")
     cost = config.cost_bps / 10_000.0
     equity, peak_equity = 1.0, 1.0
     in_pos, blocked, killed_on = False, False, None
