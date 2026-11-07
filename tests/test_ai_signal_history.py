@@ -46,7 +46,7 @@ def test_short_outcome_is_signed_correctly():
     assert history.loc[0, "return_pct"] == pytest.approx(10.0)
 
 
-def test_neutral_has_zero_return():
+def test_neutral_records_market_movement_without_fabricating_strategy_return():
     record = record_signal(
         symbol="INFY",
         exchange="NSE",
@@ -60,7 +60,8 @@ def test_neutral_has_zero_return():
     )
     history = attach_outcomes([record], {"INFY": 110.0})
 
-    assert history.loc[0, "return_pct"] == pytest.approx(0.0)
+    assert pd.isna(history.loc[0, "return_pct"])
+    assert history.loc[0, "market_return_pct"] == pytest.approx(10.0)
 
 
 def test_summary_by_signal():
@@ -94,6 +95,29 @@ def test_summary_by_signal():
     assert isinstance(summary, pd.DataFrame)
     assert summary.loc[0, "signals"] == 2
     assert summary.loc[0, "win_rate_pct"] == pytest.approx(50.0)
+
+
+
+def test_neutral_summary_reports_underlying_move_not_strategy_win_rate():
+    record = record_signal(
+        symbol="INFY",
+        exchange="NSE",
+        signal="NEUTRAL",
+        probability_up=0.5,
+        confidence_pct=50.0,
+        validation_pct=60.0,
+        trend_pct=50.0,
+        entry_price=100.0,
+        horizon_days=5,
+    )
+    history = attach_outcomes([record], {"INFY": 110.0})
+    summary = summarize_outcomes(history)
+
+    assert summary.loc[0, "signal"] == "NEUTRAL"
+    assert summary.loc[0, "evaluated"] == 0
+    assert pd.isna(summary.loc[0, "win_rate_pct"])
+    assert summary.loc[0, "market_avg_return_pct"] == pytest.approx(10.0)
+    assert summary.loc[0, "underlying_up_rate_pct"] == pytest.approx(100.0)
 
 
 def test_invalid_signal_is_rejected():
