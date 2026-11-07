@@ -65,3 +65,15 @@ def test_neutral_market_movement_is_not_counted_as_strategy_performance():
     history["signal"] = "NEUTRAL"
     result = summarize_signal_performance(history)
     assert result.empty
+
+
+
+def test_near_zero_returns_use_tolerance_for_breakeven_classification():
+    result = summarize_signal_performance(
+        _history([1e-14, -1e-14, 1e-8, -1e-8])
+    ).iloc[0]
+
+    assert result["wins"] == 1
+    assert result["losses"] == 1
+    assert result["breakeven"] == 2
+    assert result["avg_return_pct"] == pytest.approx(0.0, abs=1e-12)
