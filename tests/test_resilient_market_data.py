@@ -1,8 +1,18 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from services import resilient_market_data as market_data
+
+
+@pytest.fixture(autouse=True)
+def _clear_download_cache():
+    from services.cached_download import clear_download_cache
+
+    clear_download_cache()
+    yield
+    clear_download_cache()
 
 
 def _frame() -> pd.DataFrame:
@@ -341,3 +351,53 @@ def test_download_batch_does_not_cache_empty_results_and_retries(monkeypatch) ->
 
     assert result.empty
     assert calls == 3
+
+
+def test_download_single_caches_successful_identical_requests(monkeypatch) -> None:
+    _install_fake_ticker(monkeypatch, {"CACHE_SINGLE.NS": _frame()})
+
+    first = market_data._download_single(
+        "CACHE_SINGLE.NS",
+        period="5d",
+        interval="1d",
+        auto_adjust=False,
+        timeout=4,
+        retries=0,
+    )
+    second = market_data._download_single(
+        "CACHE_SINGLE.NS",
+        period="5d",
+        interval="1d",
+        auto_adjust=False,
+        timeout=4,
+        retries=0,
+    )
+
+    assert not first.empty
+    assert not second.empty
+    assert _FakeTicker.requests == ["CACHE_SINGLE.NS"]
+
+
+def test_download_single_uses_separate_cache_entries_for_different_intervals(monkeypatch) -> None:
+    _install_fake_ticker(monkeypatch, {"CACHE_INTERVAL.NS": _frame()})
+
+    daily = market_data._download_single(
+        "CACHE_INTERVAL.NS",
+        period="5d",
+        interval="1d",
+        auto_adjust=False,
+        timeout=4,
+        retries=0,
+    )
+    minute = market_data._download_single(
+        "CACHE_INTERVAL.NS",
+        period="5d",
+        interval="1m",
+        auto_adjust=False,
+        timeout=4,
+        retries=0,
+    )
+
+    assert not daily.empty
+    assert not minute.empty
+    assert _FakeTicker.requests == ["CACHE_INTERVAL.NS", "CACHE_INTERVAL.NS"]
