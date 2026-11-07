@@ -34,9 +34,19 @@ if not st.session_state.get("ai_signal_store_loaded", False):
 
 st.caption(f"Signal history storage: {signal_history_backend().upper()}")
 records = st.session_state.get("ai_signal_records", [])
+existing_history = st.session_state.get("ai_signal_history")
+has_pending_outcomes = (
+    not isinstance(existing_history, pd.DataFrame)
+    or len(existing_history) < len(records)
+    or "completed" not in existing_history.columns
+    or not bool(existing_history["completed"].fillna(False).all())
+)
 refresh_requested = False
 if isinstance(records, list) and records:
-    if not st.session_state.get("ai_signal_auto_refresh_attempted", False):
+    if (
+        has_pending_outcomes
+        and not st.session_state.get("ai_signal_auto_refresh_attempted", False)
+    ):
         refresh_requested = True
         st.session_state["ai_signal_auto_refresh_attempted"] = True
         st.caption("Automatically checking pending signal outcomes on this visit.")
