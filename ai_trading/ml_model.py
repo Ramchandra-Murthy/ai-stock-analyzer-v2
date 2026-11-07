@@ -12,7 +12,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from ai_trading.features import build_features
+from ai_trading.features import adjusted_close_series, build_features
 
 FEATURE_COLUMNS = [
     "return_1",
@@ -54,7 +54,7 @@ def make_training_dataset(
     features = build_features(frame)[FEATURE_COLUMNS].copy()
     features = features.apply(pd.to_numeric, errors="coerce")
     features = features.where(np.isfinite(features))
-    close = pd.to_numeric(frame["Close"], errors="coerce")
+    close = adjusted_close_series(frame)
     valid_close = close.where(close.gt(0.0) & close.map(math.isfinite))
     future_return = valid_close.shift(-horizon) / valid_close - 1.0
     future_return = future_return.where(np.isfinite(future_return))
