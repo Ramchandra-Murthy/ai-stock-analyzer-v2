@@ -1,6 +1,5 @@
 from datetime import UTC, datetime
 
-import pandas as pd
 import pytest
 
 from ai_trading.signal_history import attach_outcomes, record_signal
