@@ -38,7 +38,10 @@ def _reference(data: pd.DataFrame) -> pd.Series:
 
     if equity is not None:
         results.append(equity - 1.0)
-    return pd.Series(results, index=range(1, len(results) + 1), dtype=float)
+    result = pd.Series(results, index=range(1, len(results) + 1), dtype=float)
+    result.index.name = "position"
+    return result
+
 
 def _frame(position, returns, transaction_cost=None) -> pd.DataFrame:
     index = pd.bdate_range("2024-01-01", periods=len(position))
@@ -88,6 +91,7 @@ def test_returns_empty_float_series_when_flat() -> None:
     result = _trade_returns(_frame([0, 0, 0], [0.01, 0.02, 0.03]))
 
     assert result.empty and result.dtype == float
+
 
 def test_exit_cost_is_allocated_to_the_closed_trade() -> None:
     data = _frame(
