@@ -51,3 +51,28 @@ def split_stale(
     reference = max(valid)
     stale = [ticker for ticker, d in last_dates.items() if d is None or d != reference]
     return reference, sorted(stale)
+
+
+
+def filter_stale_frames(
+    frames: Mapping[str, pd.DataFrame],
+    *,
+    today: date | None = None,
+) -> tuple[dict[str, pd.DataFrame], dict[str, object]]:
+    """Keep only frames on the newest observed session in a batch.
+
+    This relative guard catches halted or delayed symbols without assuming an
+    exchange calendar. It does not claim that the whole batch is current; callers
+    should describe the result as relative freshness, not exchange-live freshness.
+    """
+    last_dates = {symbol: last_bar_date(frame) for symbol, frame in frames.items()}
+    reference, stale = split_stale(last_dates, today=today)
+    stale_set = set(stale)
+    usable = {symbol: frame for symbol, frame in frames.items() if symbol not in stale_set}
+    return usable, {
+        "reference_session": reference.isoformat() if reference is not None else None,
+        "stale_symbols": stale,
+        "checked_symbols": len(frames),
+        "usable_symbols": len(usable),
+        "policy": "relative_latest_session",
+    }
