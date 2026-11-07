@@ -88,21 +88,22 @@ if not isinstance(history, pd.DataFrame) or history.empty:
     )
     st.stop()
 
-# Backfill market movement for rows written before neutral signals were separated
-# from directional strategy returns.
+# Backfill market movement for legacy outcome rows that predate this field.
 if "market_return_pct" not in history.columns:
+    history["market_return_pct"] = pd.NA
+market_returns = pd.to_numeric(history["market_return_pct"], errors="coerce")
+missing_market_returns = market_returns.isna()
+if missing_market_returns.any() and {"entry_price", "outcome_price"}.issubset(history.columns):
     if "adjusted_entry_price" in history:
         entry = pd.to_numeric(history["adjusted_entry_price"], errors="coerce")
     else:
         entry = pd.Series(float("nan"), index=history.index)
-    if "entry_price" in history:
-        entry = entry.fillna(pd.to_numeric(history["entry_price"], errors="coerce"))
-    outcome = (
-        pd.to_numeric(history["outcome_price"], errors="coerce")
-        if "outcome_price" in history
-        else pd.Series(float("nan"), index=history.index)
-    )
-    history["market_return_pct"] = (outcome / entry - 1.0) * 100.0
+    entry = entry.fillna(pd.to_numeric(history["entry_price"], errors="coerce"))
+    outcome = pd.to_numeric(history["outcome_price"], errors="coerce")
+    computed_market_returns = (outcome / entry - 1.0) * 100.0
+    history.loc[missing_market_returns, "market_return_pct"] = computed_market_returns.loc[
+        missing_market_returns
+    ]
 neutral_mask = history["signal"].eq("NEUTRAL")
 history.loc[neutral_mask, "return_pct"] = pd.NA
 
