@@ -143,7 +143,11 @@ def apply_ml_signals(
     """Apply LONG/SHORT/FLAT ML signals to a long-only paper portfolio."""
     if not isfinite(capital_fraction) or not 0.0 < capital_fraction <= 1.0:
         raise ValueError("capital_fraction must be finite and between 0 and 1")
-    if isinstance(max_positions, bool) or not isinstance(max_positions, Integral) or max_positions < 1:
+    if (
+        isinstance(max_positions, bool)
+        or not isinstance(max_positions, Integral)
+        or max_positions < 1
+    ):
         raise ValueError("max_positions must be a positive integer")
 
     # Do not mutate holdings or size new entries from an understated portfolio
