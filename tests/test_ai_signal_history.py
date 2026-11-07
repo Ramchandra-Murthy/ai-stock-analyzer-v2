@@ -111,7 +111,6 @@ def test_invalid_signal_is_rejected():
         )
 
 
-
 def test_horizon_outcome_uses_nth_future_trading_bar() -> None:
     from zoneinfo import ZoneInfo
 
@@ -163,7 +162,6 @@ def test_horizon_outcome_stays_pending_until_enough_future_bars_exist() -> None:
     assert bool(history.loc[0, "completed"]) is False
     assert pd.isna(history.loc[0, "outcome_price"])
     assert pd.isna(history.loc[0, "return_pct"])
-
 
 
 def test_horizon_outcome_ignores_non_finite_prices() -> None:
