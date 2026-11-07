@@ -230,3 +230,44 @@ def test_same_direction_position_resizing_remains_one_trade() -> None:
     _, metrics = run_backtest(prices, signals, cost_bps=0.0)
 
     assert metrics.trade_count == 1
+
+
+def test_backtest_annualisation_uses_explicit_period_frequency() -> None:
+    index = pd.date_range("2026-01-01", periods=5, freq="D")
+    prices = pd.Series([100.0, 102.0, 101.0, 104.0, 103.0], index=index)
+    signals = pd.Series([1.0, 1.0, 1.0, 1.0, 0.0], index=index)
+
+    _, daily = run_backtest(prices, signals, cost_bps=0, periods_per_year=252)
+    _, intraday = run_backtest(prices, signals, cost_bps=0, periods_per_year=252 * 78)
+
+    assert intraday.volatility == pytest.approx(daily.volatility * (78**0.5))
+    assert intraday.sharpe_ratio == pytest.approx(daily.sharpe_ratio * (78**0.5))
+    assert intraday.sortino_ratio == pytest.approx(daily.sortino_ratio * (78**0.5))
+
+
+@pytest.mark.parametrize("periods_per_year", [0, -1, float("nan"), float("inf")])
+def test_backtest_rejects_invalid_annualisation_frequency(periods_per_year) -> None:
+    index = pd.date_range("2026-01-01", periods=3, freq="D")
+    prices = pd.Series([100.0, 101.0, 102.0], index=index)
+    signals = pd.Series([1.0, 1.0, 0.0], index=index)
+
+    with pytest.raises(ValueError, match="periods_per_year"):
+        run_backtest(prices, signals, periods_per_year=periods_per_year)
+
+
+def test_timeframe_comparison_accepts_frequency_per_bar_size() -> None:
+    from algorithmic_trading.backtester import compare_timeframe_backtests
+
+    index = pd.date_range("2026-01-01", periods=5, freq="D")
+    prices = pd.Series([100.0, 102.0, 101.0, 104.0, 103.0], index=index)
+    signals = pd.Series([1.0, 1.0, 1.0, 1.0, 0.0], index=index)
+
+    comparison = compare_timeframe_backtests(
+        {"1d": (prices, signals), "5min": (prices, signals)},
+        cost_bps=0,
+        periods_per_year_by_timeframe={"1d": 252, "5min": 252 * 78},
+    )
+
+    assert comparison.loc["5min", "volatility"] == pytest.approx(
+        comparison.loc["1d", "volatility"] * (78**0.5)
+    )
