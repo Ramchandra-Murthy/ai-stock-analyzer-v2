@@ -79,7 +79,7 @@ def _benchmark_return(
     result = (exit_price / entry - 1.0) * 100.0
     if not math.isfinite(result):
         return None, "invalid_benchmark_return"
-    return result, "matched"
+    return result, "matched_daily_close_proxy"
 
 
 def attach_historical_benchmarks(
