@@ -69,6 +69,8 @@ def _benchmark_return(
         return None, "missing_signal_or_outcome_timestamp"
     if end.normalize() < start.normalize():
         return None, "outcome_precedes_signal"
+    if closes.empty:
+        return None, "missing_entry_benchmark_close"
     # A daily close is not observable before 15:30 IST. Use the previous
     # completed session for intraday signals; use same-day close after market.
     start_date = start.normalize().tz_localize(None)
