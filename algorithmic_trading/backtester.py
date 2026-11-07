@@ -153,7 +153,7 @@ def run_backtest(
     data["drawdown"] = data["strategy_equity"].div(peak).sub(1.0)
 
     trade_returns = _trade_returns(data)
-    open_trade_count = int(not data["position"].iloc[-1] == 0.0)
+    open_trade_count = int(data["position"].iloc[-1] != 0.0)
     if open_trade_count and not trade_returns.empty:
         trade_returns = trade_returns.iloc[:-1]
     wins = trade_returns[trade_returns > 0]
