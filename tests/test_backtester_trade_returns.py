@@ -39,7 +39,8 @@ def _reference(data: pd.DataFrame) -> pd.Series:
     if equity is not None:
         results.append(equity - 1.0)
     result = pd.Series(results, index=range(1, len(results) + 1), dtype=float)
-    result.index.name = "position"
+    if not result.empty:
+        result.index.name = "position"
     return result
 
 
