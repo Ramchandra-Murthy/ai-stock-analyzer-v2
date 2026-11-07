@@ -171,7 +171,9 @@ def attach_horizon_outcomes(
             price_column = "Close"
         if frame is not None and not frame.empty and price_column in frame.columns:
             close = pd.to_numeric(frame[price_column], errors="coerce")
-            close = close.where(close.map(lambda value: pd.notna(value) and math.isfinite(float(value))))
+            close = close.where(
+                close.map(lambda value: pd.notna(value) and math.isfinite(float(value)))
+            )
             close = close.where(close > 0).dropna().sort_index()
             close = close.loc[~close.index.duplicated(keep="last")]
             if isinstance(close.index, pd.DatetimeIndex):
@@ -204,6 +206,7 @@ def attach_horizon_outcomes(
                 "validation_pct": updated.validation_pct,
                 "trend_pct": updated.trend_pct,
                 "entry_price": updated.entry_price,
+                "adjusted_entry_price": updated.adjusted_entry_price,
                 "outcome_price": updated.outcome_price,
                 "outcome_timestamp": outcome_timestamp,
                 "return_pct": updated.return_pct,
