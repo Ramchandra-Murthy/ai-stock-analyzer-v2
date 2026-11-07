@@ -45,7 +45,9 @@ def evaluate_signal_trades(
     required = {"completed", "return_pct", *GROUP_COLUMNS, "symbol"}
     missing = required.difference(history.columns)
     if missing:
-        raise ValueError(f"Signal history is missing required columns: {', '.join(sorted(missing))}")
+        raise ValueError(
+            f"Signal history is missing required columns: {', '.join(sorted(missing))}"
+        )
 
     rows = history.copy()
     rows["return_pct"] = pd.to_numeric(rows["return_pct"], errors="coerce")
