@@ -19,6 +19,7 @@ def _history():
             "completed": [True, True, True, False],
             "return_pct": [2.0, 1.0, float("nan"), 8.0],
             "benchmark_return_pct": [1.0, 2.0, 0.5, 1.0],
+            "sector_benchmark_return_pct": [1.5, -1.0, 0.2, 1.0],
         }
     )
 
@@ -94,3 +95,34 @@ def test_empty_history_returns_stable_empty_schema():
 def test_missing_required_columns_are_reported():
     with pytest.raises(ValueError, match="missing required columns"):
         evaluate_signal_trades(pd.DataFrame({"symbol": ["AAA"]}), _cost_model())
+
+
+
+def test_sector_benchmark_is_direction_adjusted_for_long_and_short():
+    result = evaluate_signal_trades(_history(), _cost_model())
+    long_row = result.loc[result["signal"] == "LONG"].iloc[0]
+    short_row = result.loc[result["signal"] == "SHORT"].iloc[0]
+
+    assert long_row["directional_sector_benchmark_return_pct"] == pytest.approx(1.5)
+    assert long_row["sector_excess_return_pct"] == pytest.approx(0.2256)
+    assert short_row["directional_sector_benchmark_return_pct"] == pytest.approx(1.0)
+    assert short_row["sector_excess_return_pct"] == pytest.approx(-0.2744)
+
+
+def test_missing_sector_benchmark_remains_unavailable_not_zero():
+    history = _history().iloc[[0]].drop(columns="sector_benchmark_return_pct")
+    result = evaluate_signal_trades(history, _cost_model())
+
+    assert pd.isna(result.loc[0, "sector_benchmark_return_pct"])
+    assert pd.isna(result.loc[0, "sector_excess_return_pct"])
+
+
+def test_summary_reports_sector_relative_cost_adjusted_metrics():
+    evaluation = evaluate_signal_trades(_history(), _cost_model())
+    summary = summarize_signal_trade_evaluation(evaluation)
+    long_row = summary.loc[summary["signal"] == "LONG"].iloc[0]
+    short_row = summary.loc[summary["signal"] == "SHORT"].iloc[0]
+
+    assert long_row["avg_sector_excess_return_pct"] == pytest.approx(0.2256)
+    assert long_row["sector_excess_win_rate_pct"] == pytest.approx(100.0)
+    assert short_row["avg_directional_sector_benchmark_return_pct"] == pytest.approx(1.0)
