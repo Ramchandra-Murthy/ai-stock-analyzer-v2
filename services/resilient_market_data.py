@@ -16,6 +16,7 @@ from typing import Any
 import pandas as pd
 import yfinance as yf
 
+from services.cached_download import cached_download
 from services.ohlcv_validation import build_data_status, validate_ohlcv_frame
 
 DEFAULT_RETRIES = 2
@@ -46,6 +47,11 @@ def _ticker_frame(history: pd.DataFrame | None, ticker: str) -> pd.DataFrame:
     return frame.dropna(how="all").sort_index()
 
 
+def _cached_yfinance_download(tickers: list[str], *, period: str, **kwargs: Any) -> pd.DataFrame:
+    """Stable downloader identity for shared successful-batch caching."""
+    return yf.download(tickers=tickers, period=period, **kwargs)
+
+
 def _download_batch(
     tickers: list[str],
     *,
@@ -62,9 +68,12 @@ def _download_batch(
     retry_count = max(0, int(retries))
     for attempt in range(retry_count + 1):
         try:
-            result = yf.download(
-                tickers=tickers,
+            result = cached_download(
+                tickers,
                 period=period,
+                ttl=900.0,
+                cache_empty=False,
+                downloader=_cached_yfinance_download,
                 interval=interval,
                 auto_adjust=auto_adjust,
                 progress=False,
